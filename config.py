@@ -1,10 +1,16 @@
+import os
+
+pe = os.path.exists
+pj = os.path.join
+HOME = os.path.expanduser("~")
+
 class Config():
     def __init__(self, args):
         self.seed = 36
 
         # data dir
-        self.root_dir = 'The folder which you extracted and saved all the data (e.g. all_data.csv)'
-        self.eicu_dir = 'The path into your local eICU dataset '
+        self.root_dir = pj( HOME, "Datasets/EHRs/eICU/eICU_benchmark" )
+        self.eicu_dir = pj( HOME, "Datasets/EHRs/eICU/csv" )
 
         # task details
         self.task = args.task #['phen', 'dec', 'mort', 'rlos']
@@ -29,18 +35,22 @@ class Config():
 
 
         # decompensation
-        self.dec_cat = ['apacheadmissiondx', 'ethnicity', 'gender', 'GCS Total', 'Eyes', 'Motor', 'Verbal']
-        self.dec_num = ['admissionheight', 'admissionweight', 'age', 'Heart Rate', 'MAP (mmHg)','Invasive BP Diastolic', 'Invasive BP Systolic', 'O2 Saturation',
-        'Respiratory Rate', 'Temperature (C)', 'glucose', 'FiO2', 'pH']
-
+        self.dec_cat = ['apacheadmissiondx', 'ethnicity', 'gender',
+                'GCS Total', 'Eyes', 'Motor', 'Verbal']
+        self.dec_num = ['admissionheight', 'admissionweight', 'age',
+                'Heart Rate', 'MAP (mmHg)','Invasive BP Diastolic',
+                'Invasive BP Systolic', 'O2 Saturation', 'Respiratory Rate',
+                'Temperature (C)', 'glucose', 'FiO2', 'pH']
 
         #phenotyping
         self.col_phe = ["Respiratory failure", "Fluid disorders",
-                    "Septicemia", "Acute and unspecified renal failure", "Pneumonia",
-                    "Acute cerebrovascular disease",
-                    "Acute myocardial infarction", "Gastrointestinal hem", "Shock", "Pleurisy",
-                    "lower respiratory", "Complications of surgical", "upper respiratory",
-                    "Hypertension with complications", "Essential hypertension", "CKD", "COPD",
-                    "lipid disorder", "Coronary athe", "DM without complication",
-                    "Cardiac dysrhythmias",
-                    "CHF", "DM with complications", "Other liver diseases", "Conduction disorders"]
+                "Septicemia", "Acute and unspecified renal failure",
+                "Pneumonia", "Acute cerebrovascular disease",
+                "Acute myocardial infarction", "Gastrointestinal hem", "Shock",
+                "Pleurisy", "lower respiratory", "Complications of surgical",
+                "upper respiratory", "Hypertension with complications",
+                "Essential hypertension", "CKD", "COPD", "lipid disorder",
+                "Coronary athe", "DM without complication",
+                "Cardiac dysrhythmias", "CHF", "DM with complications",
+                "Other liver diseases", "Conduction disorders"]
+

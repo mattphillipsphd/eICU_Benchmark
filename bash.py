@@ -28,13 +28,15 @@ for t in TASK:
                     args.ohe = oh
                     args.mort_window = 48
                     config = Config(args)
-                    print('{}_num_{}_cat_{}_ohe_{} Started'.format(t, str(nu), str(ca),str(oh)))
+                    print('{}_num_{}_cat_{}_ohe_{} Started'.format(t, str(nu),
+                        str(ca),str(oh)))
                     if not nu and not ca:
                         print("do not do training without data ...")
                         continue
                     output = main(config)
 
                     if output:
-                        print('{}_num_{}_cat_{}_ohe_{} Finished'.format(t, str(nu), str(ca),str(oh)))
+                        print('{}_num_{}_cat_{}_ohe_{} Finished'.format(t,
+                            str(nu), str(ca),str(oh)))
                     else:
                         print('error')
