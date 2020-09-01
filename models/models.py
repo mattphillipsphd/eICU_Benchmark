@@ -9,7 +9,9 @@ import keras
 import tensorflow as tf
 import keras.backend as K
 from keras.models import load_model
-from keras.layers import BatchNormalization, LSTM, Dropout, Dense, TimeDistributed, Masking, Activation, Input, Reshape, Embedding, Bidirectional
+from keras.layers import BatchNormalization, LSTM, Dropout, Dense,\
+        TimeDistributed, Masking, Activation, Input, Reshape, Embedding,\
+        Bidirectional
 from keras import regularizers
 from keras.callbacks import ModelCheckpoint
 from models import metrics
@@ -50,14 +52,23 @@ def build_network(config, input_size, output_dim=1, activation='sigmoid'):
 
     lstm = mask
     for i in range(config.rnn_layers-1):
-        lstm = Bidirectional(LSTM(units=config.rnn_units[i],kernel_regularizer=regularizers.l2(0.01),kernel_initializer='glorot_normal' ,name="lstm_{}".format(i+1), return_sequences=True))(lstm)
+        lstm = Bidirectional(LSTM(units=config.rnn_units[i],
+            kernel_regularizer=regularizers.l2(0.01),
+            kernel_initializer='glorot_normal' ,name="lstm_{}".format(i+1),
+            return_sequences=True))(lstm)
         lstm = BatchNormalization()(lstm)
         lstm = Dropout(config.dropout)(lstm)
 
     if config.task in ['rlos', 'dec']:
-        lstm = Bidirectional(LSTM(units=config.rnn_units[-1],kernel_regularizer=regularizers.l2(0.01),kernel_initializer='glorot_normal' ,name="lstm_{}".format(config.rnn_layers),return_sequences=True))(lstm)
+        lstm = Bidirectional(LSTM(units=config.rnn_units[-1],
+            kernel_regularizer=regularizers.l2(0.01),
+            kernel_initializer='glorot_normal' ,name="lstm_{}".format(
+                config.rnn_layers),return_sequences=True))(lstm)
     elif config.task in ['mort', 'phen']:
-        lstm = Bidirectional(LSTM(units=config.rnn_units[-1],kernel_regularizer=regularizers.l2(0.01),kernel_initializer='glorot_normal' ,name="lstm_{}".format(config.rnn_layers),return_sequences=False))(lstm)
+        lstm = Bidirectional(LSTM(units=config.rnn_units[-1],
+            kernel_regularizer=regularizers.l2(0.01),
+            kernel_initializer='glorot_normal' ,name="lstm_{}".format(\
+                    config.rnn_layers),return_sequences=False))(lstm)
     else:
         print('Invalid task type.')
         exit()
@@ -83,13 +94,17 @@ def build_network(config, input_size, output_dim=1, activation='sigmoid'):
     optim = metrics.get_optimizer(lr=config.lr)
 
     if config.task == 'mort':
-        model.compile(loss="binary_crossentropy", optimizer=optim ,metrics=[metrics.f1,metrics.sensitivity, metrics.specificity, 'accuracy'])
+        model.compile(loss="binary_crossentropy", optimizer=optim,
+                metrics=[metrics.f1,metrics.sensitivity, metrics.specificity,
+                    'accuracy'])
         # model.summary()
     elif config.task == 'rlos':
-        model.compile(loss='mean_squared_error', optimizer=optim, metrics=['mse'])
+        model.compile(loss='mean_squared_error', optimizer=optim,
+                metrics=['mse'])
     
     elif config.task in ['phen', 'dec']:
-        model.compile(loss="binary_crossentropy" ,optimizer=optim, metrics=[metrics.f1,'accuracy'])
+        model.compile(loss="binary_crossentropy" ,optimizer=optim,
+                metrics=[metrics.f1,'accuracy'])
     
     else:
         print('Invalid task name')
@@ -111,7 +126,8 @@ def baseline_network(config, input_size, output_dim=1, activation='sigmoid'):
             input2 = Input(shape=(input_size, config.n_cat_class))
             inp = keras.layers.Concatenate(axis=-1)([input1, input2])
             if config.task in ['mort','phen']: #added
-                inp = Reshape((int(input2.shape[1])*int(input2.shape[2]+input1.shape[2]),))(inp) #added
+                inp = Reshape((int(input2.shape[1])*int(input2.shape[2]\
+                        +input1.shape[2]),))(inp) #added
             #added
         
         else:
@@ -120,7 +136,8 @@ def baseline_network(config, input_size, output_dim=1, activation='sigmoid'):
             x2 = Reshape((int(x2.shape[1]),int(x2.shape[2]*x2.shape[3])))(x2)
             inp = keras.layers.Concatenate(axis=-1)([input1, x2])
             if config.task in ['mort','phen']: #added
-                inp = Reshape((int(x2.shape[1])*int(x2.shape[2]+input1.shape[2]),))(inp)#added
+                inp = Reshape((int(x2.shape[1])\
+                        *int(x2.shape[2]+input1.shape[2]),))(inp)#added
 
 
     elif config.num and not config.cat:
@@ -135,13 +152,16 @@ def baseline_network(config, input_size, output_dim=1, activation='sigmoid'):
     elif config.cat and not config.num:
         if config.ohe:
             input1 = Input(shape=(input_size, config.n_cat_class))
-            # inp = Reshape((int(input1.shape[1]),int(input1.shape[2]*input1.shape[3])))(input1)
-            # inp = Reshape((int(input1.shape[1])*int(input1.shape[2]),))(input1)
+            # inp = Reshape((int(input1.shape[1]),int(input1.shape[2]\
+                    # *input1.shape[3])))(input1)
+            # inp = Reshape((int(input1.shape[1])*int(input1.shape[2]),))\
+                    # (input1)
             inp = input1
 
             #added
             if config.task in ['mort','phen']: #added
-                inp = Reshape((int(input1.shape[1])*int(input1.shape[2]),))(input1)
+                inp = Reshape((int(input1.shape[1])*int(input1.shape[2]),))\
+                        (input1)
             #added
 
 
@@ -149,7 +169,8 @@ def baseline_network(config, input_size, output_dim=1, activation='sigmoid'):
             input1 = Input(shape=(input_size, 7))
             x1 = Embedding(config.n_cat_class, config.embedding_dim)(input1)
             inp = Reshape((int(x1.shape[1]),int(x1.shape[2]*x1.shape[3]),))(x1)
-            # inp = Reshape((int(input1.shape[1])*int(input1.shape[2]),))(input1)
+            # inp = Reshape((int(input1.shape[1])*int(input1.shape[2]),))
+            # (input1)
             #added
             if config.task in ['mort','phen']: #added
                 # inp = Reshape((int(x1.shape[1])*int(x1.shape[2]),))(x1)
@@ -180,12 +201,16 @@ def baseline_network(config, input_size, output_dim=1, activation='sigmoid'):
 
 
     if config.task == 'mort':
-        model.compile(loss="binary_crossentropy", optimizer=optim ,metrics=[metrics.f1,metrics.sensitivity, metrics.specificity, 'accuracy'])
+        model.compile(loss="binary_crossentropy", optimizer=optim,
+                metrics=[metrics.f1,metrics.sensitivity, metrics.specificity,
+                    'accuracy'])
     elif config.task == 'rlos':
-        model.compile(loss='mean_squared_error', optimizer=optim, metrics=['mse'])
+        model.compile(loss='mean_squared_error', optimizer=optim,
+                metrics=['mse'])
     
     elif config.task in ['phen', 'dec']:
-        model.compile(loss="binary_crossentropy" ,optimizer=optim, metrics=[metrics.f1,'accuracy'])
+        model.compile(loss="binary_crossentropy" ,optimizer=optim,
+                metrics=[metrics.f1,'accuracy'])
     
     else:
         print('Invalid task name')
