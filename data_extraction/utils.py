@@ -574,12 +574,12 @@ def filter_mortality_data(all_df):
     all_df['unitdischargeoffset'] = all_df['unitdischargeoffset']/(1440)
     all_df['itemoffsetday'] = (all_df['itemoffset']/24)
     all_df.drop(columns='itemoffsetday',inplace=True)
-    mort_cols = ['patientunitstayid', 'itemoffset', 'apacheadmissiondx', 'ethnicity','gender',
-                'GCS Total', 'Eyes', 'Motor', 'Verbal',
-                'admissionheight','admissionweight', 'age', 'Heart Rate', 'MAP (mmHg)',
-                'Invasive BP Diastolic', 'Invasive BP Systolic', 'O2 Saturation',
-                'Respiratory Rate', 'Temperature (C)', 'glucose', 'FiO2', 'pH',
-                'unitdischargeoffset','hospitaldischargestatus']
+    mort_cols = ['patientunitstayid', 'itemoffset', 'apacheadmissiondx',
+            'ethnicity','gender', 'GCS Total', 'Eyes', 'Motor', 'Verbal',
+            'admissionheight', 'admissionweight', 'age', 'Heart Rate',
+            'MAP (mmHg)', 'Invasive BP Diastolic', 'Invasive BP Systolic',
+            'O2 Saturation', 'Respiratory Rate', 'Temperature (C)', 'glucose',
+            'FiO2', 'pH', 'unitdischargeoffset', 'hospitaldischargestatus']
 
     all_mort = all_df[mort_cols]
     all_mort = all_mort[all_mort['unitdischargeoffset'] >=2]

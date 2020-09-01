@@ -5,7 +5,8 @@ import tensorflow as tf
 from sklearn.model_selection import KFold
 import numpy as np
 from models import data_reader
-from sklearn.metrics import roc_curve, auc,confusion_matrix, average_precision_score, matthews_corrcoef
+from sklearn.metrics import roc_curve, auc,confusion_matrix, \
+        average_precision_score, matthews_corrcoef
 from scipy import interp
 from models import evaluation
 import sys
@@ -23,7 +24,8 @@ if not sys.warnoptions:
 #Decompensation
 def train_dec(config):
     from data_extraction.utils import normalize_data_dec as normalize_data
-    from data_extraction.data_extraction_decompensation import data_extraction_decompensation as extract_data
+    from data_extraction.data_extraction_decompensation \
+            import data_extraction_decompensation as extract_data
     df_data = extract_data(config)
 
     cvscores_dec = []
@@ -46,7 +48,8 @@ def train_dec(config):
         test_idx = all_idx[test_idx]
 
         train, test = normalize_data(config, df_data,train_idx, test_idx)
-        train_gen, train_steps, (X_test, Y_test), max_time_step_test = data_reader.read_data(config, train, test, val=False)
+        train_gen, train_steps, (X_test, Y_test), max_time_step_test \
+                = data_reader.read_data(config, train, test, val=False)
      
         model = network(config, 200, output_dim=1, activation='sigmoid')
 
@@ -57,8 +60,10 @@ def train_dec(config):
                 x_cat = X_test[:, :, :7].astype(int)
                 x_nc = X_test[:,:,7:]
                 print("Please wait, One-hot encoding ...")
-                one_hot = np.zeros((x_cat.shape[0], x_cat.shape[1], 429), dtype=np.int)
-                x_cat = (np.eye(config.n_cat_class)[x_cat].sum(2) > 0).astype(int)
+                one_hot = np.zeros((x_cat.shape[0], x_cat.shape[1], 429),
+                        dtype=np.int)
+                x_cat = (np.eye(config.n_cat_class)[x_cat].sum(2) > 0)\
+                        .astype(int)
                 probas_dec = model.predict([x_nc, x_cat])
                 #todo Replace np.eye with faster function
             else:
@@ -67,8 +72,10 @@ def train_dec(config):
             if config.ohe:
                 x_cat = X_test[:, :, :].astype(int)
                 print("Please wait, One-hot encoding ...")
-                one_hot = np.zeros((x_cat.shape[0], x_cat.shape[1], 429), dtype=np.int)
-                x_cat = (np.eye(config.n_cat_class)[x_cat].sum(2) > 0).astype(int)
+                one_hot = np.zeros((x_cat.shape[0], x_cat.shape[1], 429),
+                        dtype=np.int)
+                x_cat = (np.eye(config.n_cat_class)[x_cat].sum(2) > 0)\
+                        .astype(int)
                 probas_dec = model.predict([x_cat])
                 #todo Replace np.eye with faster function
             else:
@@ -76,7 +83,8 @@ def train_dec(config):
         else:
             probas_dec = model.predict([X_test])
 
-        Y_test, probas_dec = evaluation.decompensation_metrics(Y_test,probas_dec,max_time_step_test)
+        Y_test, probas_dec = evaluation.decompensation_metrics(Y_test,
+                probas_dec,max_time_step_test)
         
         fpr_dec, tpr_dec, thresholds = roc_curve(Y_test, probas_dec)
         specat90_dec.append(1-fpr_dec[tpr_dec>=0.90][0])
@@ -131,7 +139,8 @@ def train_mort(config):
     mccs_mort = []
     specat90_mort = []
 
-    from data_extraction.data_extraction_mortality import data_extraction_mortality
+    from data_extraction.data_extraction_mortality \
+            import data_extraction_mortality
     from data_extraction.utils import normalize_data_mort as normalize_data
 
     df_data = data_extraction_mortality(config)
@@ -144,7 +153,8 @@ def train_mort(config):
         test_idx = all_idx[test_idx]
 
         train, test = normalize_data(config, df_data,train_idx, test_idx)
-        train_gen, train_steps, (X_test, Y_test), max_time_step_test = data_reader.read_data(config, train, test, val=False)
+        train_gen, train_steps, (X_test, Y_test), max_time_step_test \
+                = data_reader.read_data(config, train, test, val=False)
 
         model = network(config, 200, output_dim=1, activation='sigmoid')
 
@@ -156,8 +166,10 @@ def train_mort(config):
                 x_cat = X_test[:, :, :7].astype(int)
                 x_nc = X_test[:,:,7:]
                 print("Please wait, One-hot encoding ...")
-                one_hot = np.zeros((x_cat.shape[0], x_cat.shape[1], 429), dtype=np.int)
-                x_cat = (np.eye(config.n_cat_class)[x_cat].sum(2) > 0).astype(int)
+                one_hot = np.zeros((x_cat.shape[0], x_cat.shape[1], 429),
+                        dtype=np.int)
+                x_cat = (np.eye(config.n_cat_class)[x_cat].sum(2) > 0)\
+                        .astype(int)
                 probas_mort = model.predict([x_nc, x_cat])
                 #todo Replace np.eye with faster function
             else:
@@ -166,8 +178,10 @@ def train_mort(config):
             if config.ohe:
                 x_cat = X_test[:, :, :].astype(int)
                 print("Please wait, One-hot encoding ...")
-                one_hot = np.zeros((x_cat.shape[0], x_cat.shape[1], 429), dtype=np.int)
-                x_cat = (np.eye(config.n_cat_class)[x_cat].sum(2) > 0).astype(int)
+                one_hot = np.zeros((x_cat.shape[0], x_cat.shape[1], 429),
+                        dtype=np.int)
+                x_cat = (np.eye(config.n_cat_class)[x_cat].sum(2) > 0)\
+                        .astype(int)
                 probas_mort = model.predict([x_cat])
                 #todo Replace np.eye with faster function
             else:
@@ -198,7 +212,8 @@ def train_mort(config):
     std_auc_mort = np.std(aucs_mort)
 
     print("===========================Mortality=============================")
-    print("Mean AUC {0:0.3f} +- STD{1:0.3f}".format(mean_auc_mort,std_auc_mort))
+    print("Mean AUC {0:0.3f} +- STD{1:0.3f}".format(mean_auc_mort,
+        std_auc_mort))
     print("PPV: {0:0.3f}".format(np.mean(ppvs_mort)))
     print("NPV: {0:0.3f}".format(np.mean(npvs_mort)))
     print("AUCPR:{0:0.3f}".format(np.mean(aucprs_mort)))
@@ -216,9 +231,11 @@ def train_mort(config):
 #Phenotyping
 def train_phen(config):
     from data_extraction.utils import normalize_data_phe as normalize_data
-    from data_extraction.data_extraction_phenotyping import data_extraction_phenotyping
+    from data_extraction.data_extraction_phenotyping \
+            import data_extraction_phenotyping
     df_data, df_label = data_extraction_phenotyping(config)
-    df = df_data.merge(df_label.drop(columns=['itemoffset']), on='patientunitstayid')
+    df = df_data.merge(df_label.drop(columns=['itemoffset']),
+            on='patientunitstayid')
     import pdb;pdb.set_trace()
     all_idx = np.array(list(df['patientunitstayid'].unique()))   
     phen_auc  = []
@@ -230,7 +247,8 @@ def train_phen(config):
         test_idx = all_idx[test_idx]
 
         train, test = normalize_data(config, df,train_idx, test_idx)
-        train_gen, train_steps, (X_test, Y_test), max_time_step_test = data_reader.read_data(config, train, test, val=False)
+        train_gen, train_steps, (X_test, Y_test), max_time_step_test \
+                = data_reader.read_data(config, train, test, val=False)
      
         model = network(config, 200, output_dim=25, activation='sigmoid')
         history = model.fit_generator(train_gen,steps_per_epoch=25,
@@ -242,8 +260,10 @@ def train_phen(config):
                 x_cat = X_test[:, :, :7].astype(int)
                 x_nc = X_test[:,:,7:]
                 print("Please wait, One-hot encoding ...")
-                one_hot = np.zeros((x_cat.shape[0], x_cat.shape[1], 429), dtype=np.int)
-                x_cat = (np.eye(config.n_cat_class)[x_cat].sum(2) > 0).astype(int)
+                one_hot = np.zeros((x_cat.shape[0], x_cat.shape[1], 429),
+                        dtype=np.int)
+                x_cat = (np.eye(config.n_cat_class)[x_cat].sum(2) > 0)\
+                        .astype(int)
                 probas_phen = model.predict([x_nc, x_cat])
                 #todo Replace np.eye with faster function
             else:
@@ -252,8 +272,10 @@ def train_phen(config):
             if config.ohe:
                 x_cat = X_test[:, :, :].astype(int)
                 print("Please wait, One-hot encoding ...")
-                one_hot = np.zeros((x_cat.shape[0], x_cat.shape[1], 429), dtype=np.int)
-                x_cat = (np.eye(config.n_cat_class)[x_cat].sum(2) > 0).astype(int)
+                one_hot = np.zeros((x_cat.shape[0], x_cat.shape[1], 429),
+                        dtype=np.int)
+                x_cat = (np.eye(config.n_cat_class)[x_cat].sum(2) > 0)\
+                        .astype(int)
                 probas_phen = model.predict([x_cat])
                 #todo Replace np.eye with faster function
             else:
@@ -266,7 +288,8 @@ def train_phen(config):
     aucs_mean = np.mean(np.array(phen_aucs),axis=0)
     aucs_std  =  np.std(np.array(phen_aucs),axis=0)
     for i in range(len(config.col_phe)):
-        print("{0} : {1:0.3f} +- {2:0.3f}".format(config.col_phe[i],aucs_mean[i],aucs_std[i]))
+        print("{0} : {1:0.3f} +- {2:0.3f}".format(config.col_phe[i],
+            aucs_mean[i],aucs_std[i]))
     return {'AUROC mean': aucs_mean,
             'AUROC std': aucs_std}
 
@@ -287,7 +310,8 @@ def train_rlos(config):
         test_idx = all_idx[test_idx]
 
         train, test = normalize_data(config, df_data,train_idx, test_idx)
-        train_gen, train_steps, (X_test, Y_test), max_time_step_test = data_reader.read_data(config, train, test, val=False)
+        train_gen, train_steps, (X_test, Y_test), max_time_step_test \
+                = data_reader.read_data(config, train, test, val=False)
       
         model = network(config, 200, output_dim=1, activation='relu')
 
@@ -298,8 +322,10 @@ def train_rlos(config):
                 x_cat = X_test[:, :, :7].astype(int)
                 x_nc = X_test[:,:,7:]
                 print("Please wait, One-hot encoding ...")
-                one_hot = np.zeros((x_cat.shape[0], x_cat.shape[1], 429), dtype=np.int)
-                x_cat = (np.eye(config.n_cat_class)[x_cat].sum(2) > 0).astype(int)
+                one_hot = np.zeros((x_cat.shape[0], x_cat.shape[1], 429),
+                        dtype=np.int)
+                x_cat = (np.eye(config.n_cat_class)[x_cat].sum(2) > 0)\
+                        .astype(int)
                 probas_rlos = model.predict([x_nc, x_cat])
                 #todo Replace np.eye with faster function
             else:
@@ -308,8 +334,10 @@ def train_rlos(config):
             if config.ohe:
                 x_cat = X_test[:, :, :].astype(int)
                 print("Please wait, One-hot encoding ...")
-                one_hot = np.zeros((x_cat.shape[0], x_cat.shape[1], 429), dtype=np.int)
-                x_cat = (np.eye(config.n_cat_class)[x_cat].sum(2) > 0).astype(int)
+                one_hot = np.zeros((x_cat.shape[0], x_cat.shape[1], 429),
+                        dtype=np.int)
+                x_cat = (np.eye(config.n_cat_class)[x_cat].sum(2) > 0)\
+                        .astype(int)
                 probas_rlos = model.predict([x_cat])
                 #todo Replace np.eye with faster function
             else:
@@ -317,7 +345,8 @@ def train_rlos(config):
         else:
             probas_rlos = model.predict([X_test])   
 
-        r2,mse,mae = evaluation.regression_metrics(Y_test,probas_rlos,max_time_step_test)
+        r2,mse,mae = evaluation.regression_metrics(Y_test,probas_rlos,
+                max_time_step_test)
         r2s.append(r2)
         mses.append(mse)
         maes.append(mae)
@@ -363,7 +392,9 @@ def main(config):
     else:
         print('Invalid task name')
 
-    output_file_name = 'LSTM_{}_{}_{}_{}_{}_{}.json'.format(config.task, str(config.num), str(config.cat), str(config.ann), str(config.ohe), config.mort_window)
+    output_file_name = 'LSTM_{}_{}_{}_{}_{}_{}.json'.format(config.task,
+            str(config.num), str(config.cat), str(config.ann), str(config.ohe),
+            config.mort_window)
     with open(output_file_name, 'w') as f:
         f.write(str(result))
 
@@ -372,12 +403,12 @@ def main(config):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--task", default='mort', type=str, required=False, dest='task')
-    parser.add_argument("--num", default=True, type=str, required=False, dest='num')
-    parser.add_argument("--cat", default=True, type=str, required=False, dest='cat')
-    parser.add_argument("--ann", default=False, type=str, required=False, dest='ann')
-    parser.add_argument("--ohe", default=False, type=str, required=False, dest='ohe')
-    parser.add_argument("--mort_window", default=24, type=int, required=False, dest='mort_window')
+    parser.add_argument("--task", default='mort', type=str, required=False)
+    parser.add_argument("--num", default=True, type=str, required=False)
+    parser.add_argument("--cat", default=True, type=str, required=False)
+    parser.add_argument("--ann", default=False, type=str, required=False)
+    parser.add_argument("--ohe", default=False, type=str, required=False)
+    parser.add_argument("--mort_window", default=24, type=int, required=False)
 
     args = parser.parse_args()
     config = Config(args)

@@ -1,7 +1,8 @@
 import numpy as np
 import random
 
-def batch_generator(config, X, Y, batch_size=1024, rng=np.random.RandomState(0), train=True, phen=True,base=True):
+def batch_generator(config, X, Y, batch_size=1024,
+        rng=np.random.RandomState(0), train=True, phen=True,base=True):
         if train:
             while True:
                 all_index = list(range(X.shape[0]))
@@ -26,8 +27,10 @@ def batch_generator(config, X, Y, batch_size=1024, rng=np.random.RandomState(0),
                         x_nc = x_batch[:, :, 7:]
                         x_cat = x_batch[:,:, :7].astype(int)
                         if config.ohe:
-                            one_hot = np.zeros((x_cat.shape[0], x_cat.shape[1], 429), dtype=np.int)
-                            one_hot = (np.eye(429)[x_cat].sum(2) > 0).astype(int)
+                            one_hot = np.zeros((x_cat.shape[0], x_cat.shape[1],
+                                429), dtype=np.int)
+                            one_hot = (np.eye(429)[x_cat].sum(2) > 0)\
+                                    .astype(int)
                             x_cat = one_hot
                         yield [x_nc, x_cat], y_batch
                     
@@ -35,8 +38,10 @@ def batch_generator(config, X, Y, batch_size=1024, rng=np.random.RandomState(0),
                         # x_nc = x_batch[:, :, 7:]
                         x_cat = x_batch[:,:, :7].astype(int)
                         if config.ohe:
-                            one_hot = np.zeros((x_cat.shape[0], x_cat.shape[1], 429), dtype=np.int)
-                            one_hot = (np.eye(429)[x_cat].sum(2) > 0).astype(int)
+                            one_hot = np.zeros((x_cat.shape[0], x_cat.shape[1],
+                                429), dtype=np.int)
+                            one_hot = (np.eye(429)[x_cat].sum(2) > 0)\
+                                    .astype(int)
                             x_cat = one_hot
                         yield x_cat, y_batch
                     else:
@@ -55,7 +60,8 @@ def batch_generator(config, X, Y, batch_size=1024, rng=np.random.RandomState(0),
                     if config.num and config.cat:
                         x_nc = X[:, :, 7:]
                         x_cat = X[:, :, :7]
-                        yield [x_nc[st_idx:end_idx], x_cat[st_idx:end_idx]], Y[st_idx:end_idx]
+                        yield [x_nc[st_idx:end_idx], x_cat[st_idx:end_idx]], \
+                                Y[st_idx:end_idx]
                     else:
                         yield X[st_idx:end_idx], Y[st_idx:end_idx]
 
@@ -91,7 +97,8 @@ def read_data(config, train, test, val=False):
     X_train = list(zip(X_train, nrows_train))
 
     if val:
-        (X_train, Y_train), (X_val, Y_val) = train_test_split(X_train, Y_train, split_size=0.2)        
+        (X_train, Y_train), (X_val, Y_val) = train_test_split(X_train, Y_train,
+                split_size=0.2)        
         X_val, nrows_val = zip(*X_val)
 
     X_train, nrows_train = zip(*X_train)
@@ -99,16 +106,19 @@ def read_data(config, train, test, val=False):
     Y_test = Y_test.astype(int)
     X_train = np.array(X_train)
 
-    train_gen = batch_generator(config, X_train, Y_train, batch_size=config.batch_size, train=True, phen=True,base=BASE)
+    train_gen = batch_generator(config, X_train, Y_train,
+            batch_size=config.batch_size, train=True, phen=True,base=BASE)
     train_steps = np.ceil(len(X_train)/config.batch_size)
 
     if val:
         Y_val = Y_val.astype(int)        
-        val_gen   = batch_generator(config, X_val, Y_val, batch_size=config.batch_size, train=False,phen=True,base=BASE)
+        val_gen   = batch_generator(config, X_val, Y_val,
+                batch_size=config.batch_size, train=False,phen=True,base=BASE)
         val_steps = np.ceil(len(X_val)/config.batch_size)
 
     max_time_step = nrows_test
     if val:
-        return train_gen, train_steps, val_gen, val_steps, (X_test, Y_test), max_time_step
+        return train_gen, train_steps, val_gen, val_steps, (X_test, Y_test), \
+                max_time_step
 
     return  train_gen, train_steps, (X_test, Y_test), max_time_step
