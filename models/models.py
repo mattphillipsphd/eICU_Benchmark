@@ -16,7 +16,7 @@ from models import metrics
 
 seed = 1
 np.random.seed(seed)
-tf.set_random_seed(seed)
+tf.random.set_seed(seed)
 
 # common network
 def build_network(config, input_size, output_dim=1, activation='sigmoid'):

@@ -9,7 +9,7 @@ import sys
 import shutil
 
 from sklearn.preprocessing import MinMaxScaler
-from sklearn.externals.joblib import dump, load
+from joblib import dump, load
 
 
 def dataframe_from_csv(path, header=0, index_col=False):
@@ -17,16 +17,17 @@ def dataframe_from_csv(path, header=0, index_col=False):
 
 
 var_to_consider = ['glucose', 'Invasive BP Diastolic', 'Invasive BP Systolic',
-                   'O2 Saturation', 'Respiratory Rate', 'Motor', 'Eyes', 'MAP (mmHg)',
-                   'Heart Rate', 'GCS Total', 'Verbal', 'pH', 'FiO2', 'Temperature (C)']
+        'O2 Saturation', 'Respiratory Rate', 'Motor', 'Eyes', 'MAP (mmHg)',
+        'Heart Rate', 'GCS Total', 'Verbal', 'pH', 'FiO2', 'Temperature (C)']
 
 
 
 #Filter on useful column for this benchmark
 def filter_patients_on_columns_model(patients):
-    columns = ['patientunitstayid', 'gender', 'age', 'ethnicity', 'apacheadmissiondx',
-               'admissionheight', 'hospitaladmitoffset', 'admissionweight',
-               'hospitaldischargestatus', 'unitdischargeoffset', 'unitdischargestatus']
+    columns = ['patientunitstayid', 'gender', 'age', 'ethnicity',
+            'apacheadmissiondx', 'admissionheight', 'hospitaladmitoffset',
+            'admissionweight', 'hospitaldischargestatus',
+            'unitdischargeoffset', 'unitdischargestatus']
     return patients[columns]
 
 #Select unique patient id
@@ -38,14 +39,17 @@ def cohort_stay_id(patients):
 g_map = {'Female': 1, 'Male': 2, '': 0, 'NaN': 0, 'Unknown': 0, 'Other': 0}
 def transform_gender(gender_series):
     global g_map
-    return {'gender': gender_series.fillna('').apply(lambda s: g_map[s] if s in g_map else g_map[''])}
+    return {'gender': gender_series.fillna('').apply(lambda s: g_map[s] \
+            if s in g_map else g_map[''])}
 
 
 #Convert ethnicity to numbers
-e_map = {'Asian': 1, 'African American': 2, 'Caucasian': 3, 'Hispanic': 4, 'Native American': 5, 'NaN': 0, '': 0}
+e_map = {'Asian': 1, 'African American': 2, 'Caucasian': 3, 'Hispanic': 4, \
+        'Native American': 5, 'NaN': 0, '': 0}
 def transform_ethnicity(ethnicity_series):
     global e_map
-    return {'ethnicity': ethnicity_series.fillna('').apply(lambda s: e_map[s] if s in e_map else e_map[''])}
+    return {'ethnicity': ethnicity_series.fillna('').apply(lambda s: e_map[s] \
+            if s in e_map else e_map[''])}
 
 
 #Convert hospital/unit discharge status into numbers
@@ -76,13 +80,15 @@ def transform_dx_into_id(df):
 
 #Extract data from patient table
 def read_patients_table(eicu_path, output_path):
-    pats = dataframe_from_csv(os.path.join(eicu_path, 'patient.csv'), index_col=False)
+    pats = dataframe_from_csv(os.path.join(eicu_path, 'patient.csv'),
+            index_col=False)
     pats = filter_patients_on_age(pats, min_age=18, max_age=89)
     pats = filter_one_unit_stay(pats)
     pats = filter_patients_on_columns(pats)
     pats.update(transform_gender(pats.gender))
     pats.update(transform_ethnicity(pats.ethnicity))
-    pats.update(transform_hospital_discharge_status(pats.hospitaldischargestatus))
+    pats.update(transform_hospital_discharge_status(pats\
+            .hospitaldischargestatus))
     pats.update(transform_unit_discharge_status(pats.unitdischargestatus))
     pats = transform_dx_into_id(pats)
     pats.to_csv(os.path.join(output_path, 'all_stays.csv'), index=False)
@@ -96,10 +102,10 @@ def cohort_stay_id(patients):
 
 #filter on adult patients
 def filter_patients_on_age(patient, min_age=18, max_age=89):
-    patient.ix[patient['age'] == '> 89', 'age'] = 90
+    patient.loc[patient['age'] == '> 89', 'age'] = 90
     patient[['age']] = patient[['age']].fillna(-1)
     patient[['age']] = patient[['age']].astype(int)
-    patient = patient.ix[(patient.age >= min_age) & (patient.age <= max_age)]
+    patient = patient.loc[(patient.age >= min_age) & (patient.age <= max_age)]
     return patient
 
 #filter those having just one stay in unit
@@ -111,28 +117,32 @@ def filter_one_unit_stay(patients):
 
 #Filter on useful columns from patient table
 def filter_patients_on_columns(patients):
-    columns = ['patientunitstayid', 'gender', 'age', 'ethnicity', 'apacheadmissiondx',
-               'hospitaladmityear', 'hospitaldischargeyear', 'hospitaldischargeoffset',
-
-               'admissionheight', 'hospitaladmitoffset', 'admissionweight',
-               'hospitaldischargestatus', 'unitdischargeoffset', 'unitdischargestatus']
+    columns = ['patientunitstayid', 'gender', 'age', 'ethnicity',
+            'apacheadmissiondx', 'hospitaldischargeyear',
+            'hospitaldischargeoffset', 'admissionheight',
+            'hospitaladmitoffset', 'admissionweight',
+            'hospitaldischargestatus', 'unitdischargeoffset',
+            'unitdischargestatus']
     return patients[columns]
 
-#Write the selected cohort data from patient table into pat.csv for each patient
+#Write the selected cohort data from patient table into pat.csv for each
+#patient
 def break_up_stays_by_unit_stay(pats, output_path, stayid=None, verbose=1):
     unit_stays = pats.patientunitstayid.unique() if stayid is None else stayid
     nb_unit_stays = unit_stays.shape[0]
     for i, stay_id in enumerate(unit_stays):
         if verbose:
-            sys.stdout.write('\rStayID {0} of {1}...'.format(i + 1, nb_unit_stays))
+            sys.stdout.write('\rStayID {0} of {1}...'.format(i + 1,
+                nb_unit_stays))
         dn = os.path.join(output_path, str(stay_id))
         try:
             os.makedirs(dn)
         except:
             pass
 
-        pats.ix[pats.patientunitstayid == stay_id].sort_values(by='hospitaladmitoffset').to_csv(
-            os.path.join(dn, 'pats.csv'), index=False)
+        pats.loc[pats.patientunitstayid == stay_id].sort_values(\
+                by='hospitaladmitoffset').to_csv( os.path.join(dn, 'pats.csv'),
+                        index=False)
     if verbose:
         sys.stdout.write('DONE!\n')
 
@@ -146,7 +156,7 @@ def filter_lab_on_columns(lab):
 #Rename the columns in order to have a unified name
 def rename_lab_columns(lab):
     lab.rename(index=str, columns={"labresultoffset": "itemoffset",
-                                   "labname": "itemname", "labresult": "itemvalue"}, inplace=True)
+        "labname": "itemname", "labresult": "itemvalue"}, inplace=True)
     return lab
 
 #Select the lab measurement from lab table
@@ -168,12 +178,14 @@ def check_itemvalue(df):
 
 #extract the lab items for each patient
 def read_lab_table(eicu_path):
-    lab = dataframe_from_csv(os.path.join(eicu_path, 'lab.csv'), index_col=False)
+    lab = dataframe_from_csv(os.path.join(eicu_path, 'lab.csv'),
+            index_col=False)
     items = ['bedside glucose', 'glucose', 'pH', 'FiO2']
     lab = filter_lab_on_columns(lab)  
     lab = rename_lab_columns(lab)
     lab = item_name_selected_from_lab(lab, items)  
-    lab.loc[lab['itemname'] == 'bedside glucose', 'itemname'] = 'glucose'  # unify bedside glucose and glucose
+    lab.loc[lab['itemname'] == 'bedside glucose', 'itemname'] = 'glucose' 
+        # unify bedside glucose and glucose
     lab = check_itemvalue(lab)
     return lab
 
@@ -184,14 +196,15 @@ def break_up_lab_by_unit_stay(lab, output_path, stayid=None, verbose=1):
     nb_unit_stays = unit_stays.shape[0]
     for i, stay_id in enumerate(unit_stays):
         if verbose:
-            sys.stdout.write('\rStayID {0} of {1}...'.format(i + 1, nb_unit_stays))
+            sys.stdout.write('\rStayID {0} of {1}...'.format(i + 1,
+                nb_unit_stays))
         dn = os.path.join(output_path, str(stay_id))
         try:
             os.makedirs(dn)
         except:
             pass
-        lab.ix[lab.patientunitstayid == stay_id].sort_values(by='itemoffset').to_csv(os.path.join(dn, 'lab.csv'),
-                                                                                     index=False)
+        lab.loc[lab.patientunitstayid == stay_id].sort_values(by='itemoffset')\
+                .to_csv(os.path.join(dn, 'lab.csv'), index=False)
     if verbose:
         sys.stdout.write('DONE!\n')
 
@@ -199,8 +212,9 @@ def break_up_lab_by_unit_stay(lab, output_path, stayid=None, verbose=1):
 
 #Filter the useful columns from nc table
 def filter_nc_on_columns(nc):
-    columns = ['patientunitstayid', 'nursingchartoffset', 'nursingchartcelltypevallabel',
-               'nursingchartcelltypevalname', 'nursingchartvalue']
+    columns = ['patientunitstayid', 'nursingchartoffset',
+            'nursingchartcelltypevallabel', 'nursingchartcelltypevalname',
+            'nursingchartvalue']
     return nc[columns]
 
 #Unify the column names in order to be used later
@@ -208,7 +222,8 @@ def rename_nc_columns(nc):
     nc.rename(index=str, columns={"nursingchartoffset": "itemoffset",
                                   "nursingchartcelltypevalname": "itemname",
                                   "nursingchartcelltypevallabel": "itemlabel",
-                                  "nursingchartvalue": "itemvalue"}, inplace=True)
+                                  "nursingchartvalue": "itemvalue"},
+                                  inplace=True)
     return nc
 
 #Select the items using name and label
@@ -220,30 +235,36 @@ def item_name_selected_from_nc(nc, label, name):
 #Convert fahrenheit to celsius
 def conv_far_cel(nc):
     nc['itemvalue'] = nc['itemvalue'].astype(float)
-    nc.loc[nc['itemname'] == "Temperature (F)", "itemvalue"] = ((nc['itemvalue'] - 32) * (5 / 9))
+    nc.loc[nc['itemname'] == "Temperature (F)", "itemvalue"] \
+            = ((nc['itemvalue'] - 32) * (5 / 9))
 
     return nc
 
 #Unify the different names into one for each measurement
 def replace_itemname_value(nc):  
     nc.loc[nc['itemname'] == 'Value', 'itemname'] = nc.itemlabel
-    nc.loc[nc['itemname'] == 'Non-Invasive BP Systolic', 'itemname'] = 'Invasive BP Systolic'
-    nc.loc[nc['itemname'] == 'Non-Invasive BP Diastolic', 'itemname'] = 'Invasive BP Diastolic'
+    nc.loc[nc['itemname'] == 'Non-Invasive BP Systolic', 'itemname'] \
+            = 'Invasive BP Systolic'
+    nc.loc[nc['itemname'] == 'Non-Invasive BP Diastolic', 'itemname'] \
+            = 'Invasive BP Diastolic'
     nc.loc[nc['itemname'] == 'Temperature (F)', 'itemname'] = 'Temperature (C)'
-    nc.loc[nc['itemlabel'] == 'Arterial Line MAP (mmHg)', 'itemname'] = 'MAP (mmHg)'
+    nc.loc[nc['itemlabel'] == 'Arterial Line MAP (mmHg)', 'itemname'] \
+            = 'MAP (mmHg)'
     return nc
 
 
 #Select the nurseCharting items and save it into nc
 def read_nc_table(eicu_path):
     # import pdb;pdb.set_trace()
-    nc = dataframe_from_csv(os.path.join(eicu_path, 'nurseCharting.csv'), index_col=False)
+    nc = dataframe_from_csv(os.path.join(eicu_path, 'nurseCharting.csv'),
+            index_col=False)
     nc = filter_nc_on_columns(nc)
     nc = rename_nc_columns(nc)
-    typevallabel = ['Glasgow coma score', 'Heart Rate', 'O2 Saturation', 'Respiratory Rate', 'MAP (mmHg)',
-                    'Arterial Line MAP (mmHg)']
-    typevalname = ['Non-Invasive BP Systolic', 'Invasive BP Systolic', 'Non-Invasive BP Diastolic',
-                   'Invasive BP Diastolic', 'Temperature (C)', 'Temperature (F)']
+    typevallabel = ['Glasgow coma score', 'Heart Rate', 'O2 Saturation',
+            'Respiratory Rate', 'MAP (mmHg)', 'Arterial Line MAP (mmHg)']
+    typevalname = ['Non-Invasive BP Systolic', 'Invasive BP Systolic',
+            'Non-Invasive BP Diastolic', 'Invasive BP Diastolic',
+            'Temperature (C)', 'Temperature (F)']
     nc = item_name_selected_from_nc(nc, typevallabel, typevalname)
     nc = check_itemvalue(nc) 
     nc = conv_far_cel(nc)
@@ -253,19 +274,23 @@ def read_nc_table(eicu_path):
 
 
 #Write the nc values of each patient into a nc.csv file
-def break_up_stays_by_unit_stay_nc(nursecharting, output_path, stayid=None, verbose=1):
-    unit_stays = nursecharting.patientunitstayid.unique() if stayid is None else stayid
+def break_up_stays_by_unit_stay_nc(nursecharting, output_path, stayid=None,
+        verbose=1):
+    unit_stays = nursecharting.patientunitstayid.unique() if stayid is None \
+            else stayid
     nb_unit_stays = unit_stays.shape[0]
     for i, stay_id in enumerate(unit_stays):
         if verbose:
-            sys.stdout.write('\rStayID {0} of {1}...'.format(i + 1, nb_unit_stays))
+            sys.stdout.write('\rStayID {0} of {1}...'.format(i + 1,
+                nb_unit_stays))
         dn = os.path.join(output_path, str(stay_id))
         try:
             os.makedirs(dn)
         except:
             pass
 
-        nursecharting.ix[nursecharting.patientunitstayid == stay_id].sort_values(by='itemoffset').to_csv(
+        nursecharting.loc[nursecharting.patientunitstayid == stay_id]\
+                .sort_values(by='itemoffset').to_csv(
             os.path.join(dn, 'nc.csv'), index=False)
     if verbose:
         sys.stdout.write('DONE!\n')
@@ -274,7 +299,8 @@ def break_up_stays_by_unit_stay_nc(nursecharting, output_path, stayid=None, verb
 # Write the time-series data into one csv for each patient
 def extract_time_series_from_subject(t_path):
     print("Convert to time series ...")
-    print("This will take some hours, as the imputation and binning and converting time series are done here ...")
+    print("This will take some hours, as the imputation and binning and " \
+            "converting time series are done here ...")
 
     filter_15_200 = 0
 
@@ -288,24 +314,29 @@ def extract_time_series_from_subject(t_path):
         except:
             continue
         try:
-            pat = dataframe_from_csv(os.path.join(t_path, stay_dir, 'pats.csv'))
+            pat = dataframe_from_csv(os.path.join(t_path, stay_dir,
+                'pats.csv'))
             lab = dataframe_from_csv(os.path.join(t_path, stay_dir, 'lab.csv'))
             nc = dataframe_from_csv(os.path.join(t_path, stay_dir, 'nc.csv'))
             nclab = pd.concat([nc, lab]).sort_values(by=['itemoffset'])
-            timeepisode = convert_events_to_timeseries(nclab, variables=var_to_consider)
+            timeepisode = convert_events_to_timeseries(nclab,
+                    variables=var_to_consider)
             nclabpat = pd.merge(timeepisode, pat, on='patientunitstayid')
             df = binning(nclabpat, 60)
             df = imputer(df, strategy='normal')
             if 15 <= df.shape[0] <= 200:
                 filter_15_200 += 1
                 df = check_in_range(df)
-                df.to_csv(os.path.join(t_path, stay_dir, 'timeseries.csv'), index=False)
-                sys.stdout.write('\rWrite patient {0} / {1}'.format(i,len(os.listdir(t_path))))
+                df.to_csv(os.path.join(t_path, stay_dir, 'timeseries.csv'),
+                        index=False)
+                sys.stdout.write('\rWrite patient {0} / {1}'.format(i,
+                    len(os.listdir(t_path))))
             else:
                 continue
         except:
             continue
-    print("Number of patients with less than 15 or more than 200 records:",filter_15_200)
+    print("Number of patients with less than 15 or more than 200 records:",
+            filter_15_200)
     print('Convereted to time series')
 
 
@@ -332,17 +363,19 @@ def check_in_range(df):
     return df
 
 #Read each patient nc, lab and demographics and put all in one csv
-def convert_events_to_timeseries(events, variable_column='itemname', variables=[]):
+def convert_events_to_timeseries(events, variable_column='itemname',
+        variables=[]):
     metadata = events[['itemoffset', 'patientunitstayid']].sort_values(
-        by=['itemoffset', 'patientunitstayid']).drop_duplicates(keep='first').set_index('itemoffset')
+        by=['itemoffset', 'patientunitstayid']).drop_duplicates(keep='first')\
+                .set_index('itemoffset')
         
-    timeseries = events[['itemoffset', variable_column, 'itemvalue']].sort_values(
-        by=['itemoffset', variable_column, 'itemvalue'], axis=0).drop_duplicates(subset=['itemoffset', variable_column],
-                                                                                 keep='last')
-    timeseries = timeseries.pivot(index='itemoffset', columns=variable_column, values='itemvalue').merge(metadata,
-                                                                                                         left_index=True,
-                                                                                                         right_index=True).sort_index(
-        axis=0).reset_index()
+    timeseries = events[['itemoffset', variable_column, 'itemvalue']]\
+            .sort_values(by=['itemoffset', variable_column, 'itemvalue'],
+                    axis=0).drop_duplicates(subset=['itemoffset',
+                        variable_column], keep='last')
+    timeseries = timeseries.pivot(index='itemoffset', columns=variable_column,
+            values='itemvalue').merge(metadata, left_index=True,
+                    right_index=True).sort_index(axis=0).reset_index()
     for v in variables:
         if v not in timeseries:
             timeseries[v] = np.nan
@@ -351,8 +384,9 @@ def convert_events_to_timeseries(events, variable_column='itemname', variables=[
 #Bin all the values of one hour, into one bin
 def binning(df, x=60):
     null_columns = ['glucose', 'Invasive BP Diastolic', 'Invasive BP Systolic',
-                    'O2 Saturation', 'Respiratory Rate', 'Motor', 'Eyes', 'MAP (mmHg)',
-                    'Heart Rate', 'GCS Total', 'Verbal', 'pH', 'FiO2', 'Temperature (C)']
+            'O2 Saturation', 'Respiratory Rate', 'Motor', 'Eyes', 'MAP (mmHg)',
+            'Heart Rate', 'GCS Total', 'Verbal', 'pH', 'FiO2',
+            'Temperature (C)']
 
     df['glucose'] = df['glucose'].shift(-1)
     df.dropna(how='all', subset=null_columns, inplace=True)
@@ -364,10 +398,11 @@ def binning(df, x=60):
 
 #Imputation
 def imputer(dataframe, strategy='zero'):
-    normal_values = {'Eyes': 4, 'GCS Total': 15, 'Heart Rate': 86, 'Motor': 6, 'Invasive BP Diastolic': 56,
-                     'Invasive BP Systolic': 118, 'O2 Saturation': 98, 'Respiratory Rate': 19,
-                     'Verbal': 5, 'glucose': 128, 'admissionweight': 81, 'Temperature (C)': 36,
-                     'admissionheight': 170, "MAP (mmHg)": 77, "pH": 7.4, "FiO2": 0.21}
+    normal_values = {'Eyes': 4, 'GCS Total': 15, 'Heart Rate': 86, 'Motor': 6,
+            'Invasive BP Diastolic': 56, 'Invasive BP Systolic': 118,
+            'O2 Saturation': 98, 'Respiratory Rate': 19, 'Verbal': 5,
+            'glucose': 128, 'admissionweight': 81, 'Temperature (C)': 36,
+            'admissionheight': 170, "MAP (mmHg)": 77, "pH": 7.4, "FiO2": 0.21}
 
     if strategy not in ['zero', 'back', 'forward', 'normal']:
         raise ValueError("impute strategy is invalid")
@@ -432,7 +467,8 @@ def prepare_categorical_variables(root_dir):
     all_df = pd.read_csv(os.path.join(root_dir, 'all_data.csv'))
   
     all_df = all_df[all_df.gender != 0] #unknown gender is dropped
-    all_df = all_df[all_df.hospitaldischargestatus != 2] #unknown hospital discharge is dropped
+    all_df = all_df[all_df.hospitaldischargestatus != 2]
+        #unknown hospital discharge is dropped
     all_df = all_df[columns_ord]
 
     all_df.apacheadmissiondx = all_df.apacheadmissiondx.astype(int)
@@ -461,11 +497,12 @@ def prepare_categorical_variables(root_dir):
 
 #Decompensation
 def filter_decom_data(all_df):
-    dec_cols = ['patientunitstayid', 'itemoffset', 'apacheadmissiondx', 'ethnicity', 'gender',
-    'GCS Total', 'Eyes', 'Motor', 'Verbal',
-    'admissionheight', 'admissionweight', 'age', 'Heart Rate', 'MAP (mmHg)',
-    'Invasive BP Diastolic', 'Invasive BP Systolic', 'O2 Saturation',
-    'Respiratory Rate', 'Temperature (C)', 'glucose', 'FiO2', 'pH',
+    dec_cols = ['patientunitstayid', 'itemoffset', 'apacheadmissiondx',
+            'ethnicity', 'gender', 'GCS Total', 'Eyes', 'Motor', 'Verbal',
+            'admissionheight', 'admissionweight', 'age', 'Heart Rate',
+            'MAP (mmHg)', 'Invasive BP Diastolic', 'Invasive BP Systolic',
+            'O2 Saturation', 'Respiratory Rate', 'Temperature (C)', 'glucose',
+            'FiO2', 'pH',
     'unitdischargestatus']
     # all_df = all_df[all_df.gender != 0]
     # all_df = all_df[all_df.hospitaldischargestatus!=2]
@@ -476,7 +513,8 @@ def filter_decom_data(all_df):
     all_df.drop(columns='itemoffsetday', inplace=True)
     all_dec = all_df[all_df["unitdischargestatus"] != 2]
     all_dec = all_dec[all_dec['itemoffset'] > 0]
-    all_dec = all_dec[(all_dec['unitdischargeoffset'] > 1) & (all_dec['RLOS'] > 0)]
+    all_dec = all_dec[(all_dec['unitdischargeoffset'] > 1) \
+            & (all_dec['RLOS'] > 0)]
     all_dec = all_dec[dec_cols]
     return all_dec
 
@@ -484,10 +522,12 @@ def filter_decom_data(all_df):
 def label_decompensation(all_dec):
     all_dec["temp_y"] = np.nan
     all_dec["temp_y"] = all_dec["itemoffset"] - 48
-    all_dec['count_max'] = all_dec.groupby(['patientunitstayid'])['temp_y'].transform(max)
+    all_dec['count_max'] = all_dec.groupby(['patientunitstayid'])['temp_y']\
+            .transform(max)
     all_dec["label_24"] = np.nan
     all_dec.loc[all_dec['itemoffset'] < all_dec['count_max'], "label_24"] = 0
-    all_dec.loc[all_dec['itemoffset'] >= all_dec['count_max'], "label_24"] = all_dec['unitdischargestatus']
+    all_dec.loc[all_dec['itemoffset'] >= all_dec['count_max'],
+            "label_24"] = all_dec['unitdischargestatus']
     all_dec["unitdischargestatus"] = all_dec["label_24"]
     all_dec.drop(columns=['temp_y', 'count_max', 'label_24'], inplace=True)
     all_dec.unitdischargestatus = all_dec.unitdischargestatus.astype(int)
@@ -534,11 +574,13 @@ def normalize_data_dec(config, data, train_idx, test_idx):
     train = train[col_used]
     test = test[col_used]
     
-    cols_normalize = ['admissionheight','admissionweight', 'age', 'Heart Rate', 'MAP (mmHg)',
-       'Invasive BP Diastolic', 'Invasive BP Systolic', 'O2 Saturation',
-       'Respiratory Rate', 'Temperature (C)', 'glucose', 'FiO2', 'pH']
+    cols_normalize = ['admissionheight','admissionweight', 'age', 'Heart Rate',
+            'MAP (mmHg)', 'Invasive BP Diastolic', 'Invasive BP Systolic',
+            'O2 Saturation', 'Respiratory Rate', 'Temperature (C)', 'glucose',
+            'FiO2', 'pH']
     feat_train_minmax = train[cols_normalize]
-    scaler_minmax = MinMaxScaler(feature_range=(-1, 1), copy=True).fit(feat_train_minmax.values)
+    scaler_minmax = MinMaxScaler(feature_range=(-1, 1), copy=True).fit(
+            feat_train_minmax.values)
     feat_train_minmax = scaler_minmax.transform(feat_train_minmax.values)
 
     train[cols_normalize] = feat_train_minmax
@@ -615,11 +657,13 @@ def normalize_data_mort(config, data, train_idx, test_idx):
     train = train[col_used]
     test = test[col_used]
 
-    cols_normalize = ['admissionheight','admissionweight', 'age', 'Heart Rate', 'MAP (mmHg)',
-       'Invasive BP Diastolic', 'Invasive BP Systolic', 'O2 Saturation',
-       'Respiratory Rate', 'Temperature (C)', 'glucose', 'FiO2', 'pH']
+    cols_normalize = ['admissionheight','admissionweight', 'age', 'Heart Rate',
+            'MAP (mmHg)', 'Invasive BP Diastolic', 'Invasive BP Systolic',
+            'O2 Saturation', 'Respiratory Rate', 'Temperature (C)', 'glucose',
+            'FiO2', 'pH']
     feat_train_minmax = train[cols_normalize]
-    scaler_minmax = MinMaxScaler(feature_range=(-1, 1), copy=True).fit(feat_train_minmax.values)
+    scaler_minmax = MinMaxScaler(feature_range=(-1, 1), copy=True).fit(
+            feat_train_minmax.values)
     feat_train_minmax = scaler_minmax.transform(feat_train_minmax.values)
 
     train[cols_normalize] = feat_train_minmax
@@ -662,11 +706,13 @@ def normalize_data_phe(config, data, train_idx, test_idx):
     
     train = train[col_used]
     test = test[col_used]
-    cols_normalize = ['admissionheight','admissionweight', 'age', 'Heart Rate', 'MAP (mmHg)',
-       'Invasive BP Diastolic', 'Invasive BP Systolic', 'O2 Saturation',
-       'Respiratory Rate', 'Temperature (C)', 'glucose', 'FiO2', 'pH']
+    cols_normalize = ['admissionheight','admissionweight', 'age', 'Heart Rate',
+            'MAP (mmHg)', 'Invasive BP Diastolic', 'Invasive BP Systolic',
+            'O2 Saturation', 'Respiratory Rate', 'Temperature (C)', 'glucose',
+            'FiO2', 'pH']
     feat_train_minmax = train[cols_normalize]
-    scaler_minmax = MinMaxScaler(feature_range=(-1, 1), copy=True).fit(feat_train_minmax.values)
+    scaler_minmax = MinMaxScaler(feature_range=(-1, 1), copy=True).fit(
+            feat_train_minmax.values)
     feat_train_minmax = scaler_minmax.transform(feat_train_minmax.values)
 
     train[cols_normalize] = feat_train_minmax
@@ -687,11 +733,12 @@ def filter_phenotyping_data(all_df):
     all_df = all_df[all_df.gender != 0]
     all_df = all_df[all_df.hospitaldischargestatus!=2]
     all_df['RLOS'] = np.nan
-    phen_cols = ['patientunitstayid', 'itemoffset', 'apacheadmissiondx', 'ethnicity','gender',
-                'GCS Total', 'Eyes', 'Motor', 'Verbal',
-                'admissionheight','admissionweight', 'age', 'Heart Rate', 'MAP (mmHg)',
-                'Invasive BP Diastolic', 'Invasive BP Systolic', 'O2 Saturation',
-                'Respiratory Rate', 'Temperature (C)', 'glucose', 'FiO2', 'pH','RLOS']
+    phen_cols = ['patientunitstayid', 'itemoffset', 'apacheadmissiondx',
+            'ethnicity','gender', 'GCS Total', 'Eyes', 'Motor', 'Verbal',
+            'admissionheight','admissionweight', 'age', 'Heart Rate',
+            'MAP (mmHg)', 'Invasive BP Diastolic', 'Invasive BP Systolic',
+            'O2 Saturation', 'Respiratory Rate', 'Temperature (C)', 'glucose',
+            'FiO2', 'pH','RLOS']
     all_df['unitdischargeoffset'] = all_df['unitdischargeoffset'] / (1440)
     all_df['itemoffsetday'] = (all_df['itemoffset'] / 24)
     all_df['RLOS'] = (all_df['unitdischargeoffset'] - all_df['itemoffsetday'])
@@ -701,20 +748,25 @@ def filter_phenotyping_data(all_df):
 
 
 def read_diagnosis_table(eicu_path):
-    diag = dataframe_from_csv(os.path.join(eicu_path, 'diagnosis.csv'), index_col=False)
+    diag = dataframe_from_csv(os.path.join(eicu_path, 'diagnosis.csv'),
+            index_col=False)
     diag = diag[diag["diagnosisoffset"] > 0]
     diag = diag[['patientunitstayid', 'activeupondischarge', 'diagnosisoffset',
                 'diagnosisstring', 'icd9code']]
     diag = diag[diag['icd9code'].notnull()]
     tes = diag['icd9code'].str.split(pat=",", expand=True, n=1)
-    labels_name = ["Shock","Septicemia","Respiratory failure","Pneumonia","Pleurisy",
-              "upper respiratory","lower respiratory","Other liver diseases",
-              "Hypertension with complications","Gastrointestinal hem",
-              "Fluid disorders","Essential hypertension","lipid disorder",
-              "DM without complication","DM with complications",
-              "Coronary athe","CHF", "Conduction disorders","Complications of surgical",
-              "COPD", "CKD", "Cardiac dysrhythmias","Acute myocardial infarction",
-               "Acute cerebrovascular disease","Acute and unspecified renal failure"]
+    labels_name = ["Shock","Septicemia","Respiratory failure","Pneumonia",
+            "Pleurisy",
+            "upper respiratory","lower respiratory","Other liver diseases",
+            "Hypertension with complications","Gastrointestinal hem",
+            "Fluid disorders","Essential hypertension","lipid disorder",
+            "DM without complication","DM with complications",
+            "Coronary athe","CHF", "Conduction disorders",
+            "Complications of surgical",
+            "COPD", "CKD", "Cardiac dysrhythmias",
+            "Acute myocardial infarction",
+            "Acute cerebrovascular disease",
+            "Acute and unspecified renal failure"]
     diag['icd0'] = np.nan
     diag['icd0'] = tes
     diag['icd'] = np.nan
@@ -728,33 +780,47 @@ def diag_labels(diag):
     codes = json.load(open('phen_code.json'))
     diag.loc[diag['icd'].isin(codes['septicemia']), 'Septicemia'] = 1
     diag.loc[diag['icd'].isin(codes['Shock']), 'Shock'] = 1
-    diag.loc[diag['icd'].isin(codes['Compl_surgical']), 'Complications of surgical'] = 1
+    diag.loc[diag['icd'].isin(codes['Compl_surgical']),
+            'Complications of surgical'] = 1
     diag.loc[diag['icd'].isin(codes['ckd']), 'CKD'] = 1
-    diag.loc[diag['icd'].isin(codes['renal_failure']), 'Acute and unspecified renal failure'] = 1
+    diag.loc[diag['icd'].isin(codes['renal_failure']),
+            'Acute and unspecified renal failure'] = 1
 
-    diag.loc[diag['icd'].isin(codes['Gastroint_hemorrhage']), 'Gastrointestinal hem'] = 1
-    diag.loc[diag['icd'].isin(codes['Other_liver_dis']), 'Other liver diseases'] = 1
-    diag.loc[diag['icd'].isin(codes['upper_respiratory']), 'upper respiratory'] = 1
-    diag.loc[diag['icd'].isin(codes['lower_respiratory']), 'lower respiratory'] = 1
-    diag.loc[diag['icd'].isin(codes['Resp_failure']), 'Respiratory failure'] = 1
+    diag.loc[diag['icd'].isin(codes['Gastroint_hemorrhage']),
+            'Gastrointestinal hem'] = 1
+    diag.loc[diag['icd'].isin(codes['Other_liver_dis']),
+            'Other liver diseases'] = 1
+    diag.loc[diag['icd'].isin(codes['upper_respiratory']),
+            'upper respiratory'] = 1
+    diag.loc[diag['icd'].isin(codes['lower_respiratory']),
+            'lower respiratory'] = 1
+    diag.loc[diag['icd'].isin(codes['Resp_failure']),
+            'Respiratory failure'] = 1
 
     diag.loc[diag['icd'].isin(codes['Pleurisy']), 'Pleurisy'] = 1
     diag.loc[diag['icd'].isin(codes['COPD']), 'COPD'] = 1
     diag.loc[diag['icd'].isin(codes['Pneumonia']), 'Pneumonia'] = 1
-    diag.loc[diag['icd'].isin(codes['Acute_cerebrovascular']), 'Acute cerebrovascular disease'] = 1
+    diag.loc[diag['icd'].isin(codes['Acute_cerebrovascular']),
+            'Acute cerebrovascular disease'] = 1
     diag.loc[diag['icd'].isin(codes['Congestive_hf']), 'CHF'] = 1
 
-    diag.loc[diag['icd'].isin(codes['Cardiac_dysr']), 'Cardiac dysrhythmias'] = 1
-    diag.loc[diag['icd'].isin(codes['Conduction_dis']), 'Conduction disorders'] = 1
+    diag.loc[diag['icd'].isin(codes['Cardiac_dysr']),
+            'Cardiac dysrhythmias'] = 1
+    diag.loc[diag['icd'].isin(codes['Conduction_dis']),
+            'Conduction disorders'] = 1
     diag.loc[diag['icd'].isin(codes['Coronary_ath']), 'Coronary athe'] = 1
-    diag.loc[diag['icd'].isin(codes['myocar_infarction']), 'Acute myocardial infarction'] = 1
-    diag.loc[diag['icd'].isin(codes['hypercomp']), 'Hypertension with complications'] = 1
+    diag.loc[diag['icd'].isin(codes['myocar_infarction']),
+            'Acute myocardial infarction'] = 1
+    diag.loc[diag['icd'].isin(codes['hypercomp']),
+            'Hypertension with complications'] = 1
 
-    diag.loc[diag['icd'].isin(codes['essehyper']), 'Essential hypertension'] = 1
+    diag.loc[diag['icd'].isin(codes['essehyper']),
+            'Essential hypertension'] = 1
     diag.loc[diag['icd'].isin(codes['fluiddiso']), 'Fluid disorders'] = 1
     diag.loc[diag['icd'].isin(codes['lipidmetab']), 'lipid disorder'] = 1
     diag.loc[diag['icd'].isin(codes['t2dmcomp']), 'DM with complications'] = 1
-    diag.loc[diag['icd'].isin(codes['t2dmwocomp']), 'DM without complication'] = 1
+    diag.loc[diag['icd'].isin(codes['t2dmwocomp']),
+            'DM without complication'] = 1
     return diag
 
 def diag_df_to_numpy(df,diag_g):
@@ -765,7 +831,8 @@ def diag_df_to_numpy(df,diag_g):
     for idx, frame in df_grpd:
         idts.append(idx)
         test_np.append(frame)
-        df_label = pd.concat([df_label, diag_g[diag_g.patientunitstayid == idx]])
+        df_label = pd.concat([df_label,
+            diag_g[diag_g.patientunitstayid == idx]])
 
     return df_array,df_label
 
@@ -774,12 +841,12 @@ def diag_df_to_numpy(df,diag_g):
 #Remaining Length of Stay
 
 def filter_rlos_data(all_df):
-    los_cols = ['patientunitstayid', 'itemoffset', 'apacheadmissiondx', 'ethnicity', 'gender',
-            'GCS Total', 'Eyes', 'Motor', 'Verbal',
-            'admissionheight', 'admissionweight', 'age', 'Heart Rate', 'MAP (mmHg)',
-            'Invasive BP Diastolic', 'Invasive BP Systolic', 'O2 Saturation',
-            'Respiratory Rate', 'Temperature (C)', 'glucose', 'FiO2', 'pH',
-            'unitdischargeoffset', 'RLOS']
+    los_cols = ['patientunitstayid', 'itemoffset', 'apacheadmissiondx',
+            'ethnicity', 'gender', 'GCS Total', 'Eyes', 'Motor', 'Verbal',
+            'admissionheight', 'admissionweight', 'age', 'Heart Rate',
+            'MAP (mmHg)', 'Invasive BP Diastolic', 'Invasive BP Systolic',
+            'O2 Saturation', 'Respiratory Rate', 'Temperature (C)', 'glucose',
+            'FiO2', 'pH', 'unitdischargeoffset', 'RLOS']
 
     import pdb;pdb.set_trace()
 
@@ -794,7 +861,8 @@ def filter_rlos_data(all_df):
     
     all_los = all_df[los_cols]
     all_los = all_los[all_los['itemoffset'] > 0]
-    all_los = all_los[(all_los['unitdischargeoffset'] > 0) & (all_los['RLOS'] > 0)]
+    all_los = all_los[(all_los['unitdischargeoffset'] > 0) \
+            & (all_los['RLOS'] > 0)]
     all_los = all_los.round({'RLOS': 2})
     return all_los
 
@@ -827,7 +895,8 @@ def normalize_data_rlos(config, data, train_idx, test_idx):
     test = test[col_used]
     cols_normalize = config.dec_num
     feat_train_minmax = train[cols_normalize]
-    scaler_minmax = MinMaxScaler(feature_range=(-1, 1), copy=True).fit(feat_train_minmax.values)
+    scaler_minmax = MinMaxScaler(feature_range=(-1, 1), copy=True).fit(
+            feat_train_minmax.values)
     feat_train_minmax = scaler_minmax.transform(feat_train_minmax.values)
 
     train[cols_normalize] = feat_train_minmax
