@@ -11,6 +11,7 @@ class Config():
         # data dir
         self.root_dir = pj( HOME, "Datasets/EHRs/eICU/eICU_benchmark" )
         self.eicu_dir = pj( HOME, "Datasets/EHRs/eICU/csv" )
+        self.output_dir = pj( HOME, "Training/eICU_benchmark" )
 
         # task details
         self.task = args.task #['phen', 'dec', 'mort', 'rlos']

@@ -1,24 +1,34 @@
-from config import Config
 import argparse
-from tensorflow.compat.v1.keras import backend as K
-import tensorflow as tf
-from sklearn.model_selection import KFold
 import numpy as np
-from models import data_reader
+import os
+import sys
+
+import keras
+import tensorboard
+import tensorflow as tf
+
+from datetime import datetime
+from keras.utils import multi_gpu_model
+from scipy import interp
 from sklearn.metrics import roc_curve, auc,confusion_matrix, \
         average_precision_score, matthews_corrcoef
-from scipy import interp
+from sklearn.model_selection import KFold
+from tensorflow.compat.v1.keras import backend as K
+
+from config import Config
+from models import data_reader
 from models import evaluation
-import sys
 from models.models import build_network as network
-import os
-from keras.utils import multi_gpu_model
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 if not sys.warnoptions:
     import warnings
     warnings.simplefilter("ignore")
+
+pe = os.path.exists
+pj = os.path.join
+HOME = os.path.expanduser("~")
 
 
 #Decompensation
@@ -147,6 +157,9 @@ def train_mort(config):
     all_idx = np.array(list(df_data['patientunitstayid'].unique()))
     skf = KFold(n_splits=config.k_fold)
 
+    log_dir = pj( HOME, "tb-logs", datetime.now().strftime("%Y%m%d-%H%M%S") )
+    tensorboard_callback = keras.callbacks.TensorBoard(log_dir=log_dir)
+
     for fold_id, (train_idx, test_idx) in enumerate(skf.split(all_idx)):
         print('Running Fold {}...'.format(fold_id+1))
         train_idx = all_idx[train_idx]  
@@ -158,8 +171,9 @@ def train_mort(config):
 
         model = network(config, 200, output_dim=1, activation='sigmoid')
 
-        history = model.fit_generator(train_gen,steps_per_epoch=25,
-                            epochs=config.epochs,verbose=1,shuffle=True)
+        history = model.fit(train_gen, steps_per_epoch=25,
+                epochs=config.epochs, verbose=1, shuffle=True,
+                callbacks=[tensorboard_callback])
         
         if config.num and config.cat:
             if config.ohe:
@@ -379,6 +393,9 @@ def main(config):
     session = tf.compat.v1.Session(config=tf_config)
     K.set_session(session)
 
+    if not pe(config.output_dir):
+        os.makedirs(config.output_dir)
+
     np.random.seed(config.seed)
 
     if config.task == 'dec':
@@ -395,8 +412,10 @@ def main(config):
     output_file_name = 'LSTM_{}_{}_{}_{}_{}_{}.json'.format(config.task,
             str(config.num), str(config.cat), str(config.ann), str(config.ohe),
             config.mort_window)
-    with open(output_file_name, 'w') as f:
+    output_file_path = pj(config.output_dir, output_file_name)
+    with open(output_file_path, 'w') as f:
         f.write(str(result))
+    print(f"Results written to {output_file_path}")
 
     return True
 
