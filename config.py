@@ -25,6 +25,7 @@ class Config():
         self.embedding_dim = 5
         self.epochs = 100
         self.batch_size = 512
+        self.save_freq = 500
 
         self.ann = args.ann #
         self.ohe = args.ohe #

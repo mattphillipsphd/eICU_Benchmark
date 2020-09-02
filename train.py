@@ -134,7 +134,10 @@ def train_dec(config):
             'AUCPR':np.mean(aucprs_dec),
             'MCC':np.mean(mccs_dec),
             'Spec@90':np.mean(specat90_dec)}
-
+def write_summary(session_dir, model):
+    mstr = model.to_yaml()
+    with open( pj(session_dir, "model_arch.txt"), "w" ) as fp:
+        fp.write(mstr)
 
 #Mortality
 def train_mort(config):
@@ -157,8 +160,11 @@ def train_mort(config):
     all_idx = np.array(list(df_data['patientunitstayid'].unique()))
     skf = KFold(n_splits=config.k_fold)
 
-    log_dir = pj( HOME, "tb-logs", datetime.now().strftime("%Y%m%d-%H%M%S") )
+    session_str = datetime.now().strftime("%Y%m%d-%H%M%S")
+    log_dir = pj( HOME, "tb-logs", session_str )
     tensorboard_callback = keras.callbacks.TensorBoard(log_dir=log_dir)
+    models_dir = pj(config.output_dir, session_str, "models")
+    os.makedirs(models_dir)
 
     for fold_id, (train_idx, test_idx) in enumerate(skf.split(all_idx)):
         print('Running Fold {}...'.format(fold_id+1))
@@ -170,10 +176,19 @@ def train_mort(config):
                 = data_reader.read_data(config, train, test, val=False)
 
         model = network(config, 200, output_dim=1, activation='sigmoid')
+        write_summary( pj(config.output_dir, session_str), model)
+
+        prefix = f"fold_{fold_id}"
+        checkpoint_path = pj(models_dir, prefix + "_cp-{epoch:04d}.ckpt")
+        cp_callback = tf.keras.callbacks.ModelCheckpoint(
+            filepath=checkpoint_path, 
+            verbose=1, 
+            save_weights_only=True,
+            save_freq=1)
 
         history = model.fit(train_gen, steps_per_epoch=25,
                 epochs=config.epochs, verbose=1, shuffle=True,
-                callbacks=[tensorboard_callback])
+                callbacks=[tensorboard_callback, cp_callback])
         
         if config.num and config.cat:
             if config.ohe:
