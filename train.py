@@ -31,6 +31,11 @@ pj = os.path.join
 HOME = os.path.expanduser("~")
 
 
+g_session_str = None
+def set_session_str(task):
+    global g_session_str
+    g_session_str = task + "_" + datetime.now().strftime("%Y%m%d-%H%M%S")
+
 #Decompensation
 def train_dec(config):
     from data_extraction.utils import normalize_data_dec as normalize_data
@@ -49,6 +54,11 @@ def train_dec(config):
     mccs_dec = []
     specat90_dec = []
 
+    log_dir = pj( HOME, "tb-logs", g_session_str )
+    tensorboard_callback = keras.callbacks.TensorBoard(log_dir=log_dir)
+    models_dir = pj(config.output_dir, g_session_str, "models")
+    os.makedirs(models_dir)
+
     all_idx = np.array(list(df_data['patientunitstayid'].unique()))
 
     skf = KFold(n_splits=config.k_fold)
@@ -63,8 +73,17 @@ def train_dec(config):
      
         model = network(config, 200, output_dim=1, activation='sigmoid')
 
-        history = model.fit_generator(train_gen,steps_per_epoch=25,
-                            epochs=config.epochs,verbose=1,shuffle=True)
+        prefix = f"fold_{fold_id}"
+        checkpoint_path = pj(models_dir, prefix + "_cp-{epoch:04d}.ckpt")
+        cp_callback = tf.keras.callbacks.ModelCheckpoint(
+            filepath=checkpoint_path, 
+            verbose=1, 
+            save_weights_only=True,
+            save_freq=config.save_freq)
+
+        history = model.fit(train_gen, steps_per_epoch=25,
+                            epochs=config.epochs, verbose=1, shuffle=True,
+                            callbacks=[tensorboard_callback, cp_callback])
         if config.num and config.cat:
             if config.ohe:
                 x_cat = X_test[:, :, :7].astype(int)
@@ -137,7 +156,7 @@ def train_dec(config):
 
 def write_summary(session_dir, model):
     mstr = model.to_yaml()
-    with open( pj(session_dir, "model_arch.txt"), "w" ) as fp:
+    with open( pj(session_dir, "model_arch.yml"), "w" ) as fp:
         fp.write(mstr)
 
 #Mortality
@@ -161,10 +180,9 @@ def train_mort(config):
     all_idx = np.array(list(df_data['patientunitstayid'].unique()))
     skf = KFold(n_splits=config.k_fold)
 
-    session_str = datetime.now().strftime("%Y%m%d-%H%M%S")
-    log_dir = pj( HOME, "tb-logs", session_str )
+    log_dir = pj( HOME, "tb-logs", g_session_str )
     tensorboard_callback = keras.callbacks.TensorBoard(log_dir=log_dir)
-    models_dir = pj(config.output_dir, session_str, "models")
+    models_dir = pj(config.output_dir, g_session_str, "models")
     os.makedirs(models_dir)
 
     for fold_id, (train_idx, test_idx) in enumerate(skf.split(all_idx)):
@@ -177,7 +195,7 @@ def train_mort(config):
                 = data_reader.read_data(config, train, test, val=False)
 
         model = network(config, 200, output_dim=1, activation='sigmoid')
-        write_summary( pj(config.output_dir, session_str), model)
+        write_summary( pj(config.output_dir, g_session_str), model)
 
         prefix = f"fold_{fold_id}"
         checkpoint_path = pj(models_dir, prefix + "_cp-{epoch:04d}.ckpt")
@@ -330,10 +348,9 @@ def train_rlos(config):
     df_data = data_extraction_rlos(config)
     all_idx = np.array(list(df_data['patientunitstayid'].unique()))
 
-    session_str = datetime.now().strftime("%Y%m%d-%H%M%S")
-    log_dir = pj( HOME, "tb-logs", session_str )
+    log_dir = pj( HOME, "tb-logs", g_session_str )
     tensorboard_callback = keras.callbacks.TensorBoard(log_dir=log_dir)
-    models_dir = pj(config.output_dir, session_str, "models")
+    models_dir = pj(config.output_dir, g_session_str, "models")
     os.makedirs(models_dir)
 
     r2s= []
@@ -350,7 +367,7 @@ def train_rlos(config):
                 = data_reader.read_data(config, train, test, val=False)
       
         model = network(config, 200, output_dim=1, activation='relu')
-        write_summary( pj(config.output_dir, session_str), model)
+        write_summary( pj(config.output_dir, g_session_str), model)
 
         prefix = f"fold_{fold_id}"
         checkpoint_path = pj(models_dir, prefix + "_cp-{epoch:04d}.ckpt")
@@ -425,6 +442,7 @@ def main(config):
     session = tf.compat.v1.Session(config=tf_config)
     K.set_session(session)
 
+    set_session_str(config.task)
     if not pe(config.output_dir):
         os.makedirs(config.output_dir)
 
