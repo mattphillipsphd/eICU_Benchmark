@@ -443,6 +443,7 @@ def main(config):
     K.set_session(session)
 
     set_session_str(config.task)
+    config.write(g_session_str)
     if not pe(config.output_dir):
         os.makedirs(config.output_dir)
 

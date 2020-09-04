@@ -1,3 +1,4 @@
+import json
 import os
 
 pe = os.path.exists
@@ -55,4 +56,15 @@ class Config():
                 "Coronary athe", "DM without complication",
                 "Cardiac dysrhythmias", "CHF", "DM with complications",
                 "Other liver diseases", "Conduction disorders"]
+
+    def write(self, session_str):
+        """
+        Write all parameter values to pj(self.output_dir, session_str)
+        """
+
+        config_dir = pj(self.output_dir, session_str)
+        if not pe(config_dir):
+            os.makedirs(config_dir)
+        config_path =  pj(config_dir, "config.json")
+        json.dump(self.__dict__, open(config_path, "w"), indent=4)
 
