@@ -28,6 +28,8 @@ from data_extraction.data_extraction_mortality \
 from data_extraction.utils import normalize_data_mort as normalize_data
 from models.models import build_network as network
 
+from general.utils import plot_confusion_matrix
+
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 if not sys.warnoptions:
@@ -99,6 +101,13 @@ def main(cfg):
     TN,FP,FN,TP = confusion_matrix(Y_test,probas_mort.round()).ravel()
     PPV = TP/(TP+FP)
     NPV = TN/(TN+FN)
+
+    cm = np.array( [[TN, FP], [FN, TP]] )
+    save_path = pj( cfg["model_dir"], "confusion_matrix.png" )
+    classes = ["False", "True"]
+    plot_confusion_matrix(cm, save_path, classes,
+                          normalize=False,
+                          title='Confusion matrix')
 
     print("Inference:")
     print(f"PPV: {PPV:0.4f}, NPV: {NPV:0.4f}, roc_auc: {roc_auc_mort:0.4f}")
