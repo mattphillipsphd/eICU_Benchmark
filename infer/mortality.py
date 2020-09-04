@@ -22,8 +22,7 @@ from tensorflow.compat.v1.keras import backend as K
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import Config
-from models import data_reader
-from models import evaluation
+from models import data_reader, evaluation, metrics
 from data_extraction.data_extraction_mortality \
         import data_extraction_mortality
 from data_extraction.utils import normalize_data_mort as normalize_data
@@ -63,7 +62,8 @@ def load_model(cfg):
         start_idx = line.index("\"") + 1
         end_idx = len(line) - 1
         ckpt = line[ start_idx : end_idx ]
-    model.load_weights( pj(cfg["model_dir"], "models", ckpt) )
+    load_status = model.load_weights( pj(cfg["model_dir"], "models", ckpt) )
+    load_status.expect_partial()
     return model
 
 
@@ -74,10 +74,34 @@ def main(cfg):
     model = load_model(cfg)
     print("Model loaded")
 
+#    optim = metrics.get_optimizer(lr=bm_config.lr)
+#    if bm_config.task == 'mort':
+#        model.compile(loss="binary_crossentropy", optimizer=optim,
+#                metrics=[metrics.f1,metrics.sensitivity, metrics.specificity,
+#                    'accuracy'])
+#    elif bm_config.task == 'rlos':
+#        model.compile(loss='mean_squared_error', optimizer=optim,
+#                metrics=['mse'])
+#
+#    elif bm_config.task in ['phen', 'dec']:
+#        model.compile(loss="binary_crossentropy" ,optimizer=optim,
+#                metrics=[metrics.f1,'accuracy'])
+#
+#    else:
+#        raise("Invalid task name")
+#    print("Compiled model")
+#
     probas_mort = model.predict([X_test[:,:,7:],X_test[:,:,:7]])
     print("Inferred probabilities")
 
+    fpr_mort, tpr_mort, thresholds = roc_curve(Y_test, probas_mort)
+    roc_auc_mort = auc(fpr_mort, tpr_mort)
+    TN,FP,FN,TP = confusion_matrix(Y_test,probas_mort.round()).ravel()
+    PPV = TP/(TP+FP)
+    NPV = TN/(TN+FN)
 
+    print("Inference:")
+    print(f"PPV: {PPV:0.4f}, NPV: {NPV:0.4f}, roc_auc: {roc_auc_mort:0.4f}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
