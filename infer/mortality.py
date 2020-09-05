@@ -3,8 +3,10 @@ Run inference and analytics on mortality predictions
 """
 
 import argparse
+import matplotlib.pyplot as plt
 import numpy as np
 import os
+import pickle
 import sys
 
 import keras
@@ -12,9 +14,10 @@ import tensorboard
 import tensorflow as tf
 
 from datetime import datetime
-from keras.models import model_from_yaml
+from keras.models import Model, model_from_yaml
 from keras.utils import multi_gpu_model
 from scipy import interp
+from sklearn.manifold import TSNE
 from sklearn.metrics import roc_curve, auc,confusion_matrix, \
         average_precision_score, matthews_corrcoef
 from sklearn.model_selection import KFold
@@ -41,6 +44,20 @@ pj = os.path.join
 HOME = os.path.expanduser("~")
 
 
+def get_analysis_subsets(X_test, Y_test, N):
+    alive = (Y_test==0).flatten()
+    dead = (Y_test==1).flatten()
+    X_alive = X_test[alive]
+    X_dead = X_test[dead]
+    inc_a = len(X_alive) // N
+    X_alive = X_alive[::inc_a][:N] if inc_a>0 else X_alive[:N]
+    inc_d = len(X_dead) // N
+    X_dead = X_dead[::inc_d][:N] if inc_d>0 else X_dead[:N]
+    X_anl = np.concatenate([X_alive, X_dead], axis=0)
+    Y_anl = np.concatenate( [np.zeros(len(X_alive)), np.ones(len(X_dead))],
+            axis=0 )
+    return X_anl, Y_anl
+
 def get_data(cfg):
     df_data = data_extraction_mortality(bm_config)
     all_idx = np.array(list(df_data['patientunitstayid'].unique()))
@@ -51,7 +68,7 @@ def get_data(cfg):
     train_idx = all_idx[train_idx]
     test_idx = all_idx[test_idx]
 
-    train,test = normalize_data(bm_config, df_data,train_idx, test_idx)
+    train,test = normalize_data(bm_config, df_data, train_idx, test_idx)
     _,_,(X_test, Y_test),_ = data_reader.read_data(bm_config, train, test,
             val=False)
     return X_test, Y_test
@@ -71,46 +88,69 @@ def load_model(cfg):
 
 def main(cfg):
     X_test,Y_test = get_data(cfg)
-    print("Data loaded")
+    print(f"Data loaded. X_test shape: {X_test.shape}, Y_test shape: " \
+            "{Y_test.shape}")
 
     model = load_model(cfg)
     print("Model loaded")
 
-#    optim = metrics.get_optimizer(lr=bm_config.lr)
-#    if bm_config.task == 'mort':
-#        model.compile(loss="binary_crossentropy", optimizer=optim,
-#                metrics=[metrics.f1,metrics.sensitivity, metrics.specificity,
-#                    'accuracy'])
-#    elif bm_config.task == 'rlos':
-#        model.compile(loss='mean_squared_error', optimizer=optim,
-#                metrics=['mse'])
-#
-#    elif bm_config.task in ['phen', 'dec']:
-#        model.compile(loss="binary_crossentropy" ,optimizer=optim,
-#                metrics=[metrics.f1,'accuracy'])
-#
-#    else:
-#        raise("Invalid task name")
-#    print("Compiled model")
-#
-    probas_mort = model.predict([X_test[:,:,7:],X_test[:,:,:7]])
-    print("Inferred probabilities")
+    probas_test = model.predict( [X_test[:,:,7:], X_test[:,:,:7]] )
+    ix_pred_a = (probas_test < 0.5).flatten()
+    ix_pred_d = (probas_test >= 0.5).flatten()
+    ix_a = (Y_test==0).flatten()
+    ix_d = (Y_test==1).flatten()
+    ix_tn = ix_a & ix_pred_a
+    ix_fp = ix_a & ix_pred_d
+    ix_fn = ix_d & ix_pred_a
+    ix_tp = ix_d & ix_pred_d
+    X_anl,Y_anl = get_analysis_subsets(X_test, Y_test, cfg["num_for_analysis"])
 
-    fpr_mort, tpr_mort, thresholds = roc_curve(Y_test, probas_mort)
-    roc_auc_mort = auc(fpr_mort, tpr_mort)
-    TN,FP,FN,TP = confusion_matrix(Y_test,probas_mort.round()).ravel()
-    PPV = TP/(TP+FP)
-    NPV = TN/(TN+FN)
+    if cfg["write_out"]:
+        pickle.dump(X_test, open(pj(bm_config.output_dir, "X_test.pkl"), "wb"))
+        pickle.dump(Y_test, open(pj(bm_config.output_dir, "Y_test.pkl"), "wb"))
+        # Note, data are *right-padded*, i.e. padded with zeros to the right
+        # if there < 200 actual data samples
+        # Y_test is {0,1}, 1 = death, about 12% mortality
 
-    cm = np.array( [[TN, FP], [FN, TP]] )
-    save_path = pj( cfg["model_dir"], "confusion_matrix.png" )
-    classes = ["False", "True"]
-    plot_confusion_matrix(cm, save_path, classes,
-                          normalize=False,
-                          title='Confusion matrix')
+    if cfg["cluster"]:
+        layer_name = "bidirectional_5"
+        lstm_model = Model(inputs=model.input, outputs=model.get_layer(\
+                layer_name).output)
+        lstm_test = lstm_model.predict( [X_test[:,:,7:], X_test[:,:,:7]] )
+        tsne = TSNE()
+        print("Fitting tsne model...")
+        proj_X = tsne.fit_transform(lstm_test)
+            # Should really be training tsne with training data but oh well
+        print("...Done")
+        
+        plt.scatter(proj_X[ix_tn,0], proj_X[ix_tn,1], s=12, c="r")
+        plt.scatter(proj_X[ix_fn,0], proj_X[ix_fn,1], s=12, c="g")
+        plt.scatter(proj_X[ix_fp,0], proj_X[ix_fp,1], s=12, c="y")
+        plt.scatter(proj_X[ix_tp,0], proj_X[ix_tp,1], s=12, c="b")
+        plt.savefig( pj( cfg["model_dir"], "tsne.png") )
+        plt.close()
+        
+    # Uses all subjects
+    if cfg["confusion_matrix"]:
+        print(f"X_test shape: {X_test.shape}, Y_test shape: {Y_test.shape}")
+        print(f"Inferred probabilities, output shape {probas_test.shape}")
 
-    print("Inference:")
-    print(f"PPV: {PPV:0.4f}, NPV: {NPV:0.4f}, roc_auc: {roc_auc_mort:0.4f}")
+        fpr_mort, tpr_mort, thresholds = roc_curve(Y_test, probas_test)
+        roc_auc_mort = auc(fpr_mort, tpr_mort)
+        TN,FP,FN,TP = confusion_matrix(Y_test,probas_test.round()).ravel()
+        PPV = TP/(TP+FP)
+        NPV = TN/(TN+FN)
+
+        cm = np.array( [[TN, FP], [FN, TP]] )
+        save_path = pj( cfg["model_dir"], "confusion_matrix.png" )
+        classes = ["False", "True"]
+        plot_confusion_matrix(cm, save_path, classes,
+                              normalize=False,
+                              title='Confusion matrix')
+
+        print("Inference:")
+        print(f"PPV: {PPV:0.4f}, NPV: {NPV:0.4f}, roc_auc: " \
+                "{roc_auc_mort:0.4f}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -124,8 +164,16 @@ if __name__ == "__main__":
     parser.add_argument("--ohe", default=False, type=str, required=False)
     parser.add_argument("--mort_window", default=48, type=int, required=False)
 
+    parser.add_argument("-N", "--num-for-analysis", type=int, default=100)
+    parser.add_argument("-w", "--write-out", action="store_true",
+            help="Write out X_test, Y_test")
+    parser.add_argument("--cm", "--confusion-matrix", dest="confusion_matrix",
+            action="store_true")
+    parser.add_argument("--cluster", action="store_true",
+            help="Cluster the probabilities, color-coded by TF/PN")
+
     args = parser.parse_args()
     bm_config = Config(args)
     cfg = vars(args)
-    main(cfg)
+    main(cfg)#####
 

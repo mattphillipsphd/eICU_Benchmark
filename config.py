@@ -15,9 +15,10 @@ class Config():
         self.output_dir = pj( HOME, "Training/eICU_benchmark" )
 
         # task details
-        self.task = args.task #['phen', 'dec', 'mort', 'rlos']
-        self.num = args.num #
-        self.cat = args.cat #  
+        self.task = args.task if hasattr(args, "task") else "mort"
+            #['phen', 'dec', 'mort', 'rlos']
+        self.num = args.num if hasattr(args, "num") else True
+        self.cat = args.cat if hasattr(args, "cat") else True
         self.n_cat_class = 429        
 
         self.k_fold = 5
@@ -30,7 +31,8 @@ class Config():
 
         self.ann = args.ann #
         self.ohe = args.ohe #
-        self.mort_window = args.mort_window #48 
+        self.mort_window = args.mort_window if hasattr(args, "mort_window") \
+                else 48
         self.lr = 0.0001
         self.dropout = 0.3
         self.rnn_layers = 2

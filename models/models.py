@@ -54,7 +54,7 @@ def build_network(config, input_size, output_dim=1, activation='sigmoid'):
     for i in range(config.rnn_layers-1):
         lstm = Bidirectional(LSTM(units=config.rnn_units[i],
             kernel_regularizer=regularizers.l2(0.01),
-            kernel_initializer='glorot_normal' ,name="lstm_{}".format(i+1),
+            kernel_initializer='glorot_normal', name="lstm_{}".format(i+1),
             return_sequences=True))(lstm)
         lstm = BatchNormalization()(lstm)
         lstm = Dropout(config.dropout)(lstm)
@@ -62,12 +62,12 @@ def build_network(config, input_size, output_dim=1, activation='sigmoid'):
     if config.task in ['rlos', 'dec']:
         lstm = Bidirectional(LSTM(units=config.rnn_units[-1],
             kernel_regularizer=regularizers.l2(0.01),
-            kernel_initializer='glorot_normal' ,name="lstm_{}".format(
+            kernel_initializer='glorot_normal', name="lstm_{}".format(
                 config.rnn_layers),return_sequences=True))(lstm)
     elif config.task in ['mort', 'phen']:
         lstm = Bidirectional(LSTM(units=config.rnn_units[-1],
             kernel_regularizer=regularizers.l2(0.01),
-            kernel_initializer='glorot_normal' ,name="lstm_{}".format(\
+            kernel_initializer='glorot_normal', name="lstm_{}".format(\
                     config.rnn_layers),return_sequences=False))(lstm)
     else:
         print('Invalid task type.')
