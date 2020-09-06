@@ -14,6 +14,7 @@ import tensorboard
 import tensorflow as tf
 
 from datetime import datetime
+from keras.layers import Input
 from keras.models import Model, model_from_yaml
 from keras.utils import multi_gpu_model
 from scipy import interp
@@ -94,17 +95,17 @@ def main(cfg):
     model = load_model(cfg)
     print("Model loaded")
 
-    probas_test = model.predict( [X_test[:,:,7:], X_test[:,:,:7]] )
-    ix_pred_a = (probas_test < 0.5).flatten()
-    ix_pred_d = (probas_test >= 0.5).flatten()
-    ix_a = (Y_test==0).flatten()
-    ix_d = (Y_test==1).flatten()
-    ix_tn = ix_a & ix_pred_a
-    ix_fp = ix_a & ix_pred_d
-    ix_fn = ix_d & ix_pred_a
-    ix_tp = ix_d & ix_pred_d
-    X_anl,Y_anl = get_analysis_subsets(X_test, Y_test, cfg["num_for_analysis"])
-
+#    probas_test = model.predict( [X_test[:,:,7:], X_test[:,:,:7]] )
+#    ix_pred_a = (probas_test < 0.5).flatten()
+#    ix_pred_d = (probas_test >= 0.5).flatten()
+#    ix_a = (Y_test==0).flatten()
+#    ix_d = (Y_test==1).flatten()
+#    ix_tn = ix_a & ix_pred_a
+#    ix_fp = ix_a & ix_pred_d
+#    ix_fn = ix_d & ix_pred_a
+#    ix_tp = ix_d & ix_pred_d
+#    X_anl,Y_anl = get_analysis_subsets(X_test, Y_test, cfg["num_for_analysis"])
+#
     if cfg["write_out"]:
         pickle.dump(X_test, open(pj(bm_config.output_dir, "X_test.pkl"), "wb"))
         pickle.dump(Y_test, open(pj(bm_config.output_dir, "Y_test.pkl"), "wb"))
@@ -113,16 +114,41 @@ def main(cfg):
         # Y_test is {0,1}, 1 = death, about 12% mortality
 
     if cfg["cluster"]:
+#        layer_name = "bidirectional_5"
+#        lstm_model = Model(inputs=model.input, outputs=model.get_layer(\
+#                layer_name).output)
+#        lstm_test = lstm_model.predict( [X_test[:,:,7:], X_test[:,:,:7]] )
+#        tsne = TSNE()
+#       
         layer_name = "bidirectional_5"
-        lstm_model = Model(inputs=model.input, outputs=model.get_layer(\
-                layer_name).output)
-        lstm_test = lstm_model.predict( [X_test[:,:,7:], X_test[:,:,:7]] )
+        bilstm_layer = model.get_layer(layer_name)
+#        bilstm_layer.forward_layer.return_state = True
+#        bilstm_layer.forward_layer.return_sequences = True
+#        bilstm_layer.backward_layer.return_state = True
+#        bilstm_layer.backward_layer.return_sequences = True
+        bilstm_layer.return_state = True
+        bilstm_layer.return_sequences = True
+#        inputs = Input(shape=X_test.shape[1:])
+        outputs=bilstm_layer.output
+        bilstm_model = Model(inputs=model.input, outputs=outputs)
+        out = bilstm_model.predict( \
+                [X_test[:,:,7:], X_test[:,:,:7]] )
+        print("Len:", len(out))
+        out_mat = np.stack(out, axis=0)
+        print(out_mat.shape)
+        bilstm_test = np.stack( [x[-1,:] for x in out], axis=0 )
+        print(bilstm_test.shape)
+#        seq_h,last_fh,last_fc,last_bh,last_bc = bilstm_model.predict( \
+#                [X_test[:100,:,7:], X_test[:100,:,:7]] )
+#        seq_h,lstm_test,last_c = lstm_model.predict( [X_test[:100,:,7:],
+#            X_test[:100,:,:7]] )
         tsne = TSNE()
         print("Fitting tsne model...")
-        proj_X = tsne.fit_transform(lstm_test)
+        proj_X = tsne.fit_transform(bilstm_test)
             # Should really be training tsne with training data but oh well
         print("...Done")
         
+        plt.figure(figsize=(16,16))
         plt.scatter(proj_X[ix_tn,0], proj_X[ix_tn,1], s=12, c="r")
         plt.scatter(proj_X[ix_fn,0], proj_X[ix_fn,1], s=12, c="g")
         plt.scatter(proj_X[ix_fp,0], proj_X[ix_fp,1], s=12, c="y")

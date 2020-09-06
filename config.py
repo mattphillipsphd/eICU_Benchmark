@@ -26,7 +26,8 @@ class Config():
         self.model_dir = ''
         self.embedding_dim = 5
         self.epochs = 100
-        self.batch_size = 512
+        self.batch_size = args.batch_size if hasattr(args, "batch_size") \
+                else 512
         self.save_freq = 500
 
         self.ann = args.ann #
