@@ -478,7 +478,7 @@ if __name__ == "__main__":
     parser.add_argument("--cat", default=True, type=str, required=False)
     parser.add_argument("--ann", default=False, type=str, required=False)
     parser.add_argument("--ohe", default=False, type=str, required=False)
-    parser.add_argument("--mort_window", default=24, type=int, required=False)
+    parser.add_argument("--mort_window", default=48, type=int, required=False)
 
     args = parser.parse_args()
     config = Config(args)

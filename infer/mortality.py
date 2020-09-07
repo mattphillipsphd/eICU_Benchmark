@@ -14,7 +14,7 @@ import tensorboard
 import tensorflow as tf
 
 from datetime import datetime
-from keras.layers import Input
+from keras.layers import Bidirectional, Input
 from keras.models import Model, model_from_yaml
 from keras.utils import multi_gpu_model
 from scipy import interp
@@ -44,6 +44,8 @@ pe = os.path.exists
 pj = os.path.join
 HOME = os.path.expanduser("~")
 
+tf.config.run_functions_eagerly(True)
+tf.compat.v1.disable_eager_execution()
 
 def get_analysis_subsets(X_test, Y_test, N):
     alive = (Y_test==0).flatten()
@@ -93,6 +95,7 @@ def main(cfg):
             "{Y_test.shape}")
 
     model = load_model(cfg)
+    model.summary()
     print("Model loaded")
 
 #    probas_test = model.predict( [X_test[:,:,7:], X_test[:,:,:7]] )
@@ -118,16 +121,64 @@ def main(cfg):
 #        lstm_model = Model(inputs=model.input, outputs=model.get_layer(\
 #                layer_name).output)
 #        lstm_test = lstm_model.predict( [X_test[:,:,7:], X_test[:,:,:7]] )
+#        raise
 #        tsne = TSNE()
 #       
-        layer_name = "bidirectional_5"
-        bilstm_layer = model.get_layer(layer_name)
-#        bilstm_layer.forward_layer.return_state = True
-#        bilstm_layer.forward_layer.return_sequences = True
-#        bilstm_layer.backward_layer.return_state = True
-#        bilstm_layer.backward_layer.return_sequences = True
+        bilstm_name = "bidirectional_5"
+        bilstm_layer = model.get_layer(bilstm_name)
+        bilstm_layer.return_sequences = True
+        bilstm_model = Model(inputs=model.input, outputs=bilstm_layer.output)
+        bilstm_test = bilstm_model.predict( [X_test[:,:,7:], X_test[:,:,:7]] )
+        print(len(bilstm_test))
+        print(bilstm_test.shape)
+        raise
+
+        lstmf_layer = bilstm_layer.forward_layer
+        lstmf_layer.return_sequences = True
+        lstmf_model = Model(inputs=model.input, outputs=lstmf_layer.output)
+        lstmf_test = lstmf_model.predict( [X_test[:,:,7:], X_test[:,:,:7]] )
+#        lstmf_test = lstmf_model.predict( X_test )
+        print(len(lstmf_test))
+        print(lstmf_test.shape)
+        raise
+
+        lstmb_layer = bilstm_layer.backward_layer
+        lstmb_layer.return_state = True
+        lstmb_layer.return_sequences = True
+#        bilstm_new = Bidirectional(lstmf_layer, backward_layer=lstmb_layer)(\
+#                dropout_layer)
+#        lstm_model = Model(inputs=model.input, outputs=bilstm_new)
+#        lstm_test = lstm_model.predict( [X_test[:,:,7:], X_test[:,:,:7]] )
+#        raise
+
+        print( "With return state/sequences, forward LSTM:" )
+        seq_h,last_fh,last_fc = lstmf_layer( [X_test[:,:,7:], X_test[:,:,:7]] )
+        print(f"\tseq_h: {seq_h.shape}")
+        print(f"\tlast_fh: {last_fh.shape}")
+        print(f"\tlast_fc: {last_fc.shape}")
+        print( "With return state/sequences, backward LSTM:" )
+        seq_h,last_bh,last_bc = lstmb_layer( [X_test[:,:,7:], X_test[:,:,:7]] )
+        print(f"\tseq_h: {seq_h.shape}")
+        print(f"\tlast_bh: {last_bh.shape}")
+        print(f"\tlast_bc: {last_bc.shape}")
+        raise
+
         bilstm_layer.return_state = True
         bilstm_layer.return_sequences = True
+        bilstm_layer.forward_layer.return_state = True
+        bilstm_layer.forward_layer.return_sequences = True
+        bilstm_layer.backward_layer.return_state = True
+        bilstm_layer.backward_layer.return_sequences = True
+
+        seq_h,last_fh,last_fc,last_bh,last_bc = bilstm_layer( \
+                [X_test[:,:,7:], X_test[:,:,:7]] )
+        print(f"\tseq_h: {seq_h.shape}")
+        print(f"\tlast_fh: {last_fh.shape}")
+        print(f"\tlast_fc: {last_fc.shape}")
+        print(f"\tlast_bh: {last_bh.shape}")
+        print(f"\tlast_bc: {last_bc.shape}")
+        raise
+
 #        inputs = Input(shape=X_test.shape[1:])
         outputs=bilstm_layer.output
         bilstm_model = Model(inputs=model.input, outputs=outputs)
