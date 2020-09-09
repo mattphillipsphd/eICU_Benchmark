@@ -18,7 +18,7 @@ from keras.layers import Bidirectional, Input
 from keras.models import Model, model_from_yaml
 from keras.utils import multi_gpu_model
 from scipy import interp
-from sklearn.manifold import TSNE
+from sklearn.manifold import Isomap, TSNE
 from sklearn.metrics import roc_curve, auc,confusion_matrix, \
         average_precision_score, matthews_corrcoef
 from sklearn.model_selection import KFold
@@ -90,11 +90,12 @@ def load_model(model_dir):
 
 
 def main(cfg):
+    model_dir = os.path.abspath( cfg["model_dir"] )
     X_test,Y_test = get_data(cfg)
     print(f"Data loaded. X_test shape: {X_test.shape}, Y_test shape: " \
             "{Y_test.shape}")
 
-    model = load_model( cfg["model_dir"] )
+    model = load_model(model_dir)
     model.summary()
     print("Model loaded")
 
@@ -121,16 +122,22 @@ def main(cfg):
         bilstm_layer = model.get_layer(bilstm_name)
         bilstm_layer.return_sequences = True
         bilstm_model = Model(inputs=model.input, outputs=bilstm_layer.output)
-        bilstm_test = bilstm_model.predict( [X_test[:,:,7:], X_test[:,:,:7]] )
-        print("Shape of BiLSTM output:", bilstm_test.shape)
-        bilstm_test = np.concatenate( [bilstm_test[:,:,:64], 
-            bilstm_test[:,::-1,64:]], axis=2 )
+        bilstm_seqs = bilstm_model.predict( [X_test[:,:,7:], X_test[:,:,:7]] )
+        print("Shape of BiLSTM output:", bilstm_seqs.shape)
+        bilstm_seqs = np.concatenate( [bilstm_seqs[:,:,:64], 
+            bilstm_seqs[:,::-1,64:]], axis=2 )
 
-        probas_out = bilstm_test[:,-1,:]
+        reducer = cfg["reducer"]
+        if reducer=="tsne":
+            red_model = TSNE(n_components=2)
+        elif reducer=="isomap":
+            red_model = Isomap(n_components=2, n_neighbors=cfg["n_neighbors"])
+        else:
+            raise NotImplementedError(reducer)
+        probas_out = bilstm_seqs[:,-1,:]
         print("Shape of final probas matrix:", probas_out.shape)
-        tsne = TSNE()
-        print("Fitting tsne model...")
-        proj_X = tsne.fit_transform(probas_out)
+        print(f"Fitting {reducer} model...")
+        proj_X = red_model.fit_transform(probas_out)
             # Should really be training tsne with training data but oh well
         print("...Done")
         
@@ -139,9 +146,30 @@ def main(cfg):
         plt.scatter(proj_X[ix_fn,0], proj_X[ix_fn,1], s=12, c="g")
         plt.scatter(proj_X[ix_fp,0], proj_X[ix_fp,1], s=12, c="y")
         plt.scatter(proj_X[ix_tp,0], proj_X[ix_tp,1], s=12, c="b")
-        plt.savefig( pj( cfg["model_dir"], "tsne.png") )
+        plt.savefig( pj(model_dir, f"{reducer}.png") )
         plt.close()
-        
+
+        inc = cfg["plot_every_nth"]
+        slices_dir = pj(model_dir, f"{reducer}_slices")
+        if not pe(slices_dir):
+            os.makedirs(slices_dir)
+        for j in range( bilstm_seqs.shape[1] ):
+            slice_j = bilstm_seqs[::inc,j,:]
+            proj_X_j = red_model.transform(slice_j)
+            plt.figure(figsize=(16,16))
+            plt.scatter( proj_X_j[ix_tn[::inc],0], proj_X_j[ix_tn[::inc],1],
+                    s=12, c="r" )
+            plt.scatter( proj_X_j[ix_fn[::inc],0], proj_X_j[ix_fn[::inc],1],
+                    s=24, c="g" )
+            plt.scatter( proj_X_j[ix_fp[::inc],0], proj_X_j[ix_fp[::inc],1],
+                    s=12, c="y" )
+            plt.scatter( proj_X_j[ix_tp[::inc],0], proj_X_j[ix_tp[::inc],1],
+                    s=24, c="b" )
+            plt.savefig( pj(slices_dir, f"{reducer}_{j:03d}.png") )
+            plt.close()
+
+
+
     # Uses all subjects
     if cfg["confusion_matrix"]:
         print(f"X_test shape: {X_test.shape}, Y_test shape: {Y_test.shape}")
@@ -184,6 +212,10 @@ if __name__ == "__main__":
             action="store_true")
     parser.add_argument("--cluster", action="store_true",
             help="Cluster the probabilities, color-coded by TF/PN")
+    parser.add_argument("-r", "--reducer", default="isomap",
+            choices=["tsne", "isomap"])
+    parser.add_argument("--n-neighbors", type=int, default=12)
+    parser.add_argumnet("--nth", "--plot-every-nth", type=int, default=20)
 
     args = parser.parse_args()
     bm_config = Config(args)
