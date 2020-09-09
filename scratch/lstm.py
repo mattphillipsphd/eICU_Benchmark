@@ -28,10 +28,19 @@ def basic_lstm(cfg):
     data = np.array([0.1,0.2,0.3]).reshape([1,3,1])
     inputs1 = Input(shape=data.shape[1:])
     num_units = cfg["num_units"]
-    lstm1 = LSTM(num_units, return_state=False, return_sequences=False)(inputs1)
-    model1 = Model(inputs=inputs1, outputs=lstm1)
+
+    lstm1 = Bidirectional(LSTM(units=num_units,
+        kernel_regularizer=regularizers.l2(0.01),
+        name="lstm1",
+        return_sequences=True))(inputs1)
+    lstm1 = BatchNormalization()(lstm1)
+    lstm1 = Dropout(0.3)(lstm1)
+
+    lstm2 = LSTM(num_units, return_state=False, return_sequences=False,
+            name="lstm2")(lstm1)
+    model1 = Model(inputs=inputs1, outputs=lstm2)
     out = model1.predict(data)
-    print(f"model1 orignal output shape: {out.shape}")
+    print(f"model1 original output shape: {out.shape}")
 
     model_stub = pj(HOME, "temp", "model1")
     # serialize model to JSON
@@ -52,7 +61,7 @@ def basic_lstm(cfg):
     print("Loaded model from disk")
 
     model2.summary()
-    lstm_layer = model2.get_layer("lstm")
+    lstm_layer = model2.get_layer("lstm2")
     print( "No return state/sequences:", lstm_layer(data) )
     return_state = cfg["return_state"]
     lstm_layer.return_state = return_state
@@ -65,10 +74,19 @@ def basic_lstm(cfg):
 
 def bilstm(cfg):
     data = np.array([0.1,0.2,0.3]).reshape([1,3,1])
-    inputs1 = Input(shape=data.shape[1:])
-    lstm1 = LSTM(1, return_state=False, return_sequences=False)
-    bilstm1 = Bidirectional(lstm1)(inputs1)
-    model1 = Model(inputs=inputs1, outputs=bilstm1)
+    inputs = Input(shape=data.shape[1:])
+    num_units = cfg["num_units"]
+
+    lstm1 = Bidirectional(LSTM(units=num_units,
+        kernel_regularizer=regularizers.l2(0.01),
+        name="lstm1",
+        return_sequences=True))(inputs)
+    lstm1 = BatchNormalization()(lstm1)
+    lstm1 = Dropout(0.3)(lstm1)
+
+    lstm2 = LSTM(num_units, return_state=False, return_sequences=False)
+    bilstm2 = Bidirectional(lstm2, name="lstm2")(lstm1)
+    model1 = Model(inputs=inputs, outputs=bilstm2)
     out = model1.predict(data)
     print(f"model1 orignal output shape: {out.shape}")
 
@@ -92,17 +110,17 @@ def bilstm(cfg):
 
     model2.summary()
 
-    bilstm_layer = model2.get_layer("bidirectional")
+    bilstm_layer = model2.get_layer("lstm2")
     print( "No return state/sequences:" )
     last_h = bilstm_layer(data)
     print(f"\tlast_h: {last_h}")
 
     if cfg["wrapped_bilstm"]:
-        wrapped_bilstm(bilstm_layer, data, cfg)
+        wrapped_bilstm(bilstm_layer, data, model2, cfg)
     elif cfg["bilstm_fb"]:
-        bilstm_fb(bilstm_layer, data, cfg)
+        bilstm_fb(bilstm_layer, data, model2, cfg)
 
-def bilstm_fb(bilstm_layer, data, cfg):
+def bilstm_fb(bilstm_layer, data, full_model, cfg):
     lstmf_layer = bilstm_layer.forward_layer
     lstmb_layer = bilstm_layer.backward_layer
     lstmf_layer.return_sequences = True
@@ -156,15 +174,17 @@ def tutorial(cfg):
     model = Model([encoder_input, decoder_input], output)
     model.summary()
 
-def wrapped_bilstm(bilstm_layer, data, cfg):
+def wrapped_bilstm(bilstm_layer, data, full_model, cfg):
     return_state = cfg["return_state"]
     bilstm_layer.return_state = return_state
-    bilstm_layer.return_sequences = True
-    bilstm_layer.forward_layer.return_state = return_state
-    bilstm_layer.forward_layer.return_sequences = True
     bilstm_layer.backward_layer.return_state = return_state
+    bilstm_layer.forward_layer.return_state = return_state
+    bilstm_layer.return_sequences = True
+    bilstm_layer.forward_layer.return_sequences = True
     bilstm_layer.backward_layer.return_sequences = True
     state_str = "state/" if return_state else ""
+    # Note that passing data directly to the bilstm_layer only works because
+    # it is equivalent to the initial_state of the layer
     print( f"With return {state_str}sequences:" )
     if return_state:
         seq_h,last_fh,last_fc,last_bh,last_bc = bilstm_layer(data)
@@ -175,6 +195,19 @@ def wrapped_bilstm(bilstm_layer, data, cfg):
         print(f"\tlast_bc: {last_bc}")
     else:
         seq_h = bilstm_layer(data)
+        print(f"\tseq_h: {seq_h}")
+
+    model = Model(inputs=full_model.input, outputs=bilstm_layer.output)
+    print("Now getting outputs from the model:")
+    if return_state:
+        seq_h,last_fh,last_fc,last_bh,last_bc = model.predict(data)
+        print(f"\tseq_h: {seq_h}")
+        print(f"\tlast_fh: {last_fh}")
+        print(f"\tlast_fc: {last_fc}")
+        print(f"\tlast_bh: {last_bh}")
+        print(f"\tlast_bc: {last_bc}")
+    else:
+        seq_h = model.predict(data)
         print(f"\tseq_h: {seq_h}")
 
 def main(cfg):

@@ -30,7 +30,6 @@ from models import data_reader, evaluation, metrics
 from data_extraction.data_extraction_mortality \
         import data_extraction_mortality
 from data_extraction.utils import normalize_data_mort as normalize_data
-from models.models import build_network as network
 
 from general.utils import plot_confusion_matrix
 
@@ -44,8 +43,9 @@ pe = os.path.exists
 pj = os.path.join
 HOME = os.path.expanduser("~")
 
-tf.config.run_functions_eagerly(True)
-tf.compat.v1.disable_eager_execution()
+# Turning these on made the model not run!!!
+#tf.config.run_functions_eagerly(True)
+#tf.compat.v1.disable_eager_execution()
 
 def get_analysis_subsets(X_test, Y_test, N):
     alive = (Y_test==0).flatten()
@@ -76,15 +76,15 @@ def get_data(cfg):
             val=False)
     return X_test, Y_test
 
-def load_model(cfg):
-    yaml_file = pj( cfg["model_dir"], "model_arch.yml" )
+def load_model(model_dir):
+    yaml_file = pj( model_dir, "model_arch.yml" )
     model = model_from_yaml( open(yaml_file) )
-    with open( pj(cfg["model_dir"], "models", "checkpoint") ) as fp:
+    with open( pj(model_dir, "models", "checkpoint") ) as fp:
         line = next(fp).strip()
         start_idx = line.index("\"") + 1
         end_idx = len(line) - 1
         ckpt = line[ start_idx : end_idx ]
-    load_status = model.load_weights( pj(cfg["model_dir"], "models", ckpt) )
+    load_status = model.load_weights( pj(model_dir, "models", ckpt) )
     load_status.expect_partial()
     return model
 
@@ -94,21 +94,21 @@ def main(cfg):
     print(f"Data loaded. X_test shape: {X_test.shape}, Y_test shape: " \
             "{Y_test.shape}")
 
-    model = load_model(cfg)
+    model = load_model( cfg["model_dir"] )
     model.summary()
     print("Model loaded")
 
-#    probas_test = model.predict( [X_test[:,:,7:], X_test[:,:,:7]] )
-#    ix_pred_a = (probas_test < 0.5).flatten()
-#    ix_pred_d = (probas_test >= 0.5).flatten()
-#    ix_a = (Y_test==0).flatten()
-#    ix_d = (Y_test==1).flatten()
-#    ix_tn = ix_a & ix_pred_a
-#    ix_fp = ix_a & ix_pred_d
-#    ix_fn = ix_d & ix_pred_a
-#    ix_tp = ix_d & ix_pred_d
-#    X_anl,Y_anl = get_analysis_subsets(X_test, Y_test, cfg["num_for_analysis"])
-#
+    probas_test = model.predict( [X_test[:,:,7:], X_test[:,:,:7]] )
+    ix_pred_a = (probas_test < 0.5).flatten()
+    ix_pred_d = (probas_test >= 0.5).flatten()
+    ix_a = (Y_test==0).flatten()
+    ix_d = (Y_test==1).flatten()
+    ix_tn = ix_a & ix_pred_a
+    ix_fp = ix_a & ix_pred_d
+    ix_fn = ix_d & ix_pred_a
+    ix_tp = ix_d & ix_pred_d
+    X_anl,Y_anl = get_analysis_subsets(X_test, Y_test, cfg["num_for_analysis"])
+
     if cfg["write_out"]:
         pickle.dump(X_test, open(pj(bm_config.output_dir, "X_test.pkl"), "wb"))
         pickle.dump(Y_test, open(pj(bm_config.output_dir, "Y_test.pkl"), "wb"))
@@ -117,85 +117,20 @@ def main(cfg):
         # Y_test is {0,1}, 1 = death, about 12% mortality
 
     if cfg["cluster"]:
-#        layer_name = "bidirectional_5"
-#        lstm_model = Model(inputs=model.input, outputs=model.get_layer(\
-#                layer_name).output)
-#        lstm_test = lstm_model.predict( [X_test[:,:,7:], X_test[:,:,:7]] )
-#        raise
-#        tsne = TSNE()
-#       
-        bilstm_name = "bidirectional_5"
+        bilstm_name = "bilstm_2"
         bilstm_layer = model.get_layer(bilstm_name)
         bilstm_layer.return_sequences = True
         bilstm_model = Model(inputs=model.input, outputs=bilstm_layer.output)
         bilstm_test = bilstm_model.predict( [X_test[:,:,7:], X_test[:,:,:7]] )
-        print(len(bilstm_test))
-        print(bilstm_test.shape)
-        raise
+        print("Shape of BiLSTM output:", bilstm_test.shape)
+        bilstm_test = np.concatenate( [bilstm_test[:,:,:64], 
+            bilstm_test[:,::-1,64:]], axis=2 )
 
-        lstmf_layer = bilstm_layer.forward_layer
-        lstmf_layer.return_sequences = True
-        lstmf_model = Model(inputs=model.input, outputs=lstmf_layer.output)
-        lstmf_test = lstmf_model.predict( [X_test[:,:,7:], X_test[:,:,:7]] )
-#        lstmf_test = lstmf_model.predict( X_test )
-        print(len(lstmf_test))
-        print(lstmf_test.shape)
-        raise
-
-        lstmb_layer = bilstm_layer.backward_layer
-        lstmb_layer.return_state = True
-        lstmb_layer.return_sequences = True
-#        bilstm_new = Bidirectional(lstmf_layer, backward_layer=lstmb_layer)(\
-#                dropout_layer)
-#        lstm_model = Model(inputs=model.input, outputs=bilstm_new)
-#        lstm_test = lstm_model.predict( [X_test[:,:,7:], X_test[:,:,:7]] )
-#        raise
-
-        print( "With return state/sequences, forward LSTM:" )
-        seq_h,last_fh,last_fc = lstmf_layer( [X_test[:,:,7:], X_test[:,:,:7]] )
-        print(f"\tseq_h: {seq_h.shape}")
-        print(f"\tlast_fh: {last_fh.shape}")
-        print(f"\tlast_fc: {last_fc.shape}")
-        print( "With return state/sequences, backward LSTM:" )
-        seq_h,last_bh,last_bc = lstmb_layer( [X_test[:,:,7:], X_test[:,:,:7]] )
-        print(f"\tseq_h: {seq_h.shape}")
-        print(f"\tlast_bh: {last_bh.shape}")
-        print(f"\tlast_bc: {last_bc.shape}")
-        raise
-
-        bilstm_layer.return_state = True
-        bilstm_layer.return_sequences = True
-        bilstm_layer.forward_layer.return_state = True
-        bilstm_layer.forward_layer.return_sequences = True
-        bilstm_layer.backward_layer.return_state = True
-        bilstm_layer.backward_layer.return_sequences = True
-
-        seq_h,last_fh,last_fc,last_bh,last_bc = bilstm_layer( \
-                [X_test[:,:,7:], X_test[:,:,:7]] )
-        print(f"\tseq_h: {seq_h.shape}")
-        print(f"\tlast_fh: {last_fh.shape}")
-        print(f"\tlast_fc: {last_fc.shape}")
-        print(f"\tlast_bh: {last_bh.shape}")
-        print(f"\tlast_bc: {last_bc.shape}")
-        raise
-
-#        inputs = Input(shape=X_test.shape[1:])
-        outputs=bilstm_layer.output
-        bilstm_model = Model(inputs=model.input, outputs=outputs)
-        out = bilstm_model.predict( \
-                [X_test[:,:,7:], X_test[:,:,:7]] )
-        print("Len:", len(out))
-        out_mat = np.stack(out, axis=0)
-        print(out_mat.shape)
-        bilstm_test = np.stack( [x[-1,:] for x in out], axis=0 )
-        print(bilstm_test.shape)
-#        seq_h,last_fh,last_fc,last_bh,last_bc = bilstm_model.predict( \
-#                [X_test[:100,:,7:], X_test[:100,:,:7]] )
-#        seq_h,lstm_test,last_c = lstm_model.predict( [X_test[:100,:,7:],
-#            X_test[:100,:,:7]] )
+        probas_out = bilstm_test[:,-1,:]
+        print("Shape of final probas matrix:", probas_out.shape)
         tsne = TSNE()
         print("Fitting tsne model...")
-        proj_X = tsne.fit_transform(bilstm_test)
+        proj_X = tsne.fit_transform(probas_out)
             # Should really be training tsne with training data but oh well
         print("...Done")
         
@@ -233,6 +168,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--model-dir", type=str,
             default=pj(HOME, "Training/eICU_benchmark/mort_20200901-231037"))
+#            default=pj(HOME, "Training/eICU_benchmark/mort_20200908-075827"))
 
     parser.add_argument("--task", default='mort', type=str, required=False)
     parser.add_argument("--num", default=True, type=str, required=False)
@@ -252,5 +188,5 @@ if __name__ == "__main__":
     args = parser.parse_args()
     bm_config = Config(args)
     cfg = vars(args)
-    main(cfg)#####
+    main(cfg)
 

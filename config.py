@@ -30,8 +30,8 @@ class Config():
                 else 512
         self.save_freq = 500
 
-        self.ann = args.ann #
-        self.ohe = args.ohe #
+        self.ann = args.ann if hasattr(args, "ann") else False
+        self.ohe = args.ohe if hasattr(args, "ohe") else False
         self.mort_window = args.mort_window if hasattr(args, "mort_window") \
                 else 48
         self.lr = 0.0001

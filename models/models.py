@@ -64,11 +64,6 @@ def build_network(config, input_size, output_dim=1, activation='sigmoid'):
             kernel_regularizer=regularizers.l2(0.01),
             kernel_initializer='glorot_normal', name="lstm_{}".format(
                 config.rnn_layers),return_sequences=True))(lstm)
-    elif config.task in ['mort']:
-        lstm = Bidirectional(LSTM(units=config.rnn_units[-1],
-            kernel_regularizer=regularizers.l2(0.01),
-            kernel_initializer='glorot_normal', name="lstm_{}".format(\
-                    config.rnn_layers),return_sequences=True))(lstm)
     elif config.task in ['phen', 'mort']:
         lstm = Bidirectional(LSTM(units=config.rnn_units[-1],
             kernel_regularizer=regularizers.l2(0.01),

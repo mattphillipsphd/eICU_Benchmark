@@ -19,6 +19,7 @@ from config import Config
 from models import data_reader
 from models import evaluation
 from models.models import build_network as network
+from models.models_seq import build_network_seq as network_seq
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
@@ -194,7 +195,8 @@ def train_mort(config):
         train_gen, train_steps, (X_test, Y_test), max_time_step_test \
                 = data_reader.read_data(config, train, test, val=False)
 
-        model = network(config, 200, output_dim=1, activation='sigmoid')
+#        model = network(config, 200, output_dim=1, activation='sigmoid')
+        model = network_seq(config, 200, output_dim=1, activation='sigmoid')
         write_summary( pj(config.output_dir, g_session_str), model)
 
         prefix = f"fold_{fold_id}"
