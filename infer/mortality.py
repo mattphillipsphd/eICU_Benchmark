@@ -30,6 +30,7 @@ from models import data_reader, evaluation, metrics
 from data_extraction.data_extraction_mortality \
         import data_extraction_mortality
 from data_extraction.utils import normalize_data_mort as normalize_data
+from trajectories import Trajectories
 
 from general.utils import plot_confusion_matrix
 
@@ -153,22 +154,25 @@ def main(cfg):
         slices_dir = pj(model_dir, f"{reducer}_slices")
         if not pe(slices_dir):
             os.makedirs(slices_dir)
-        for j in range( bilstm_seqs.shape[1] ):
-            slice_j = bilstm_seqs[::inc,j,:]
-            proj_X_j = red_model.transform(slice_j)
-            plt.figure(figsize=(16,16))
-            plt.scatter( proj_X_j[ix_tn[::inc],0], proj_X_j[ix_tn[::inc],1],
-                    s=12, c="r" )
-            plt.scatter( proj_X_j[ix_fn[::inc],0], proj_X_j[ix_fn[::inc],1],
-                    s=24, c="g" )
-            plt.scatter( proj_X_j[ix_fp[::inc],0], proj_X_j[ix_fp[::inc],1],
-                    s=12, c="y" )
-            plt.scatter( proj_X_j[ix_tp[::inc],0], proj_X_j[ix_tp[::inc],1],
-                    s=24, c="b" )
-            plt.savefig( pj(slices_dir, f"{reducer}_{j:03d}.png") )
-            plt.close()
+        seq_len = bilstm_seqs.shape[1]
+        start_idx = seq_len - cfg["plot_last_n"]
 
-
+        bilstm_seqs = bilstm_seqs[::inc, start_idx:]
+        print("Creating sequence projections...")
+        data_mat = np.zeros( (bilstm_seqs.shape[0], bilstm_seqs.shape[1], 2) )
+        for j in range(seq_len - start_idx):
+            slice_j = bilstm_seqs[:,j,:]
+            data_mat[:,j,:] = red_model.transform(slice_j)
+        print("...Done")
+        color_d = { "r" : (ix_tn[::inc], 12),
+                "g" : (ix_fn[::inc], 24),
+                "y" : (ix_fp[::inc], 12),
+                "b" : (ix_tp[::inc], 24)
+                }
+        trajectories = Trajectories(data_mat, color_dict=color_d,
+                final_extra=20)
+        trajectories.save( pj(model_dir, f"{reducer}_{len(data_mat)}.gif") )
+        plt.show()
 
     # Uses all subjects
     if cfg["confusion_matrix"]:
@@ -215,7 +219,10 @@ if __name__ == "__main__":
     parser.add_argument("-r", "--reducer", default="isomap",
             choices=["tsne", "isomap"])
     parser.add_argument("--n-neighbors", type=int, default=12)
-    parser.add_argumnet("--nth", "--plot-every-nth", type=int, default=20)
+    parser.add_argument("--nth", "--plot-every-nth", dest="plot_every_nth",
+            type=int, default=20)
+    parser.add_argument("--last-n", "--plot-last-n", dest="plot_last_n",
+            type=int, default=50)
 
     args = parser.parse_args()
     bm_config = Config(args)
