@@ -27,6 +27,7 @@ from tensorflow.compat.v1.keras import backend as K
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import Config
 from models import data_reader, evaluation, metrics
+from data_extraction.dpsom_mort import dpsom_extraction_mortality
 from data_extraction.data_extraction_mortality \
         import data_extraction_mortality
 from data_extraction.utils import normalize_data_mort as normalize_data
@@ -63,6 +64,11 @@ def get_analysis_subsets(X_test, Y_test, N):
     return X_anl, Y_anl
 
 def get_data(cfg):
+    if cfg["task"].startswith("dpsom"):
+        return _get_dpsom_data(cfg)
+    return _get_bench_data(cfg)
+
+def _get_bench_data(cfg):
     df_data = data_extraction_mortality(bm_config)
     all_idx = np.array(list(df_data['patientunitstayid'].unique()))
     skf = KFold(n_splits=bm_config.k_fold)
@@ -75,6 +81,14 @@ def get_data(cfg):
     train,test = normalize_data(bm_config, df_data, train_idx, test_idx)
     _,_,(X_test, Y_test),_ = data_reader.read_data(bm_config, train, test,
             val=False)
+    return X_test, Y_test
+
+def _get_dpsom_data(cfg):
+    _,_,test_gen,test_steps = dpsom_extraction_mortality(bm_config)
+    test_data = list(test_gen)
+    X_test,Y_test = zip(*test_data)
+    X_test = np.concatenate(X_test, axis=0)
+    Y_test = np.concatenate(Y_test, axis=0)
     return X_test, Y_test
 
 def load_model(model_dir):
@@ -94,13 +108,19 @@ def main(cfg):
     model_dir = os.path.abspath( cfg["model_dir"] )
     X_test,Y_test = get_data(cfg)
     print(f"Data loaded. X_test shape: {X_test.shape}, Y_test shape: " \
-            "{Y_test.shape}")
+            f"{Y_test.shape}")
+    # Binarize outcome if need be
+    Y_test[ Y_test>=0.5 ] = 1
+    Y_test[ Y_test<0.5 ] = 0
 
     model = load_model(model_dir)
     model.summary()
     print("Model loaded")
 
-    probas_test = model.predict( [X_test[:,:,7:], X_test[:,:,:7]] )
+    if cfg["task"].startswith("dpsom"):
+        probas_test = model.predict(X_test)
+    else:
+        probas_test = model.predict( [X_test[:,:,7:], X_test[:,:,:7]] )
     ix_pred_a = (probas_test < 0.5).flatten()
     ix_pred_d = (probas_test >= 0.5).flatten()
     ix_a = (Y_test==0).flatten()
@@ -123,7 +143,10 @@ def main(cfg):
         bilstm_layer = model.get_layer(bilstm_name)
         bilstm_layer.return_sequences = True
         bilstm_model = Model(inputs=model.input, outputs=bilstm_layer.output)
-        bilstm_seqs = bilstm_model.predict( [X_test[:,:,7:], X_test[:,:,:7]] )
+        if cfg["task"].startswith("dpsom"):
+            bilstm_seqs = bilstm_model.predict(X_test)
+        else:
+            bilstm_seqs = bilstm_model.predict([X_test[:,:,7:],X_test[:,:,:7]])
         print("Shape of BiLSTM output:", bilstm_seqs.shape)
         bilstm_seqs = np.concatenate( [bilstm_seqs[:,:,:64], 
             bilstm_seqs[:,::-1,64:]], axis=2 )
@@ -199,7 +222,7 @@ def main(cfg):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model-dir", type=str,
+    parser.add_argument("-m", "--model-dir", type=str,
             default=pj(HOME, "Training/eICU_benchmark/mort_20200909-091756"))
 
     parser.add_argument("--task", default='mort', type=str, required=False)

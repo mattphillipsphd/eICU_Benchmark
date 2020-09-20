@@ -160,14 +160,31 @@ def write_summary(session_dir, model):
     with open( pj(session_dir, "model_arch.yml"), "w" ) as fp:
         fp.write(mstr)
 
+# Mortality using DPSOM paper preprocessing
 def train_dpsom_mort(config):
     from data_extraction.dpsom_mort import dpsom_extraction_mortality
-    train_gen = dpsom_extraction_mortality(config)
-#    all_idx = train_gen.get_pt_ids()
+    train_gen,train_steps,test_gen,test_steps = dpsom_extraction_mortality(\
+            config)
     time_dim = config.dpsom_time_dim
     model = network_seq(config, time_dim, output_dim=1, activation='sigmoid')
+    write_summary( pj(config.output_dir, g_session_str), model)
+
+    models_dir = pj(config.output_dir, g_session_str, "models")
+    os.makedirs(models_dir)
+    fold_id = 0
+
+    prefix = f"fold_{fold_id}"
+    checkpoint_path = pj(models_dir, prefix + "_cp-{epoch:04d}.ckpt")
+    cp_callback = tf.keras.callbacks.ModelCheckpoint(
+        filepath=checkpoint_path, 
+        verbose=1, 
+        save_weights_only=True,
+        save_freq=config.save_freq)
+
     history = model.fit(train_gen, steps_per_epoch=25,
-            epochs=config.epochs)
+            epochs=config.epochs,
+            callbacks=[cp_callback,])
+    model.predict(test_gen)
 
 #Mortality
 def train_mort(config):
@@ -492,6 +509,8 @@ if __name__ == "__main__":
     parser.add_argument("--ann", default=False, type=str, required=False)
     parser.add_argument("--ohe", default=False, type=str, required=False)
     parser.add_argument("--mort_window", default=48, type=int, required=False)
+
+    parser.add_argument("-b", "--batch-size", type=int, default=512)
 
     args = parser.parse_args()
     config = Config(args)

@@ -119,27 +119,44 @@ class DataGenerator(Sequence):
         return y
 
 
-def batch_generator(pt_ids, mort, bm_config):
-    train_gen = DataGenerator(pt_ids, mort, bm_config, to_fit=True,
+def batch_generator(pt_ids, mort, bm_config, mode):
+    data_gen = DataGenerator(pt_ids, mort, bm_config, to_fit=True,
             shuffle=True)
+    print(f"Data generator created, length {len(data_gen)}")
     index = 0
     while True:
-        X,y = train_gen[index]
+        X,y = data_gen[index]
         index += 1
-        if index==len(train_gen):
-            train_gen.on_epoch_end()
-            index = 0
         yield X,y
+        if index==len(data_gen):
+            if mode=="train":
+                data_gen.on_epoch_end()
+                index = 0
+            elif mode=="test":
+                break
+            else:
+                raise NotImplementedError(mode)
 
 
 def dpsom_extraction_mortality(bm_config):
     outcome_df = pd.read_csv( pj(bm_config.dpsom_supdir, "static.csv") )
     mort = outcome_df.apachepatientresult_predictedhospitalmortality
     pt_ids = outcome_df[ mort>=0 ].patientunitstayid.to_numpy()
-    mort = mort[ mort>=0 ]
+    mort = mort[ mort>=0 ].to_numpy()
     assert( len(pt_ids) == len(mort) )
-    train_gen = batch_generator(pt_ids, mort.to_numpy(), bm_config)
-    return train_gen
+    N = len(pt_ids)
+    indexes = list( range(N) )
+    np.random.seed( bm_config.seed )
+    np.random.shuffle(indexes)
+    train_N = N - int( N*bm_config.test_pct )
+    train_pids = [ pt_ids[ix] for ix in indexes[:train_N] ]
+    train_mort = [ mort[ix] for ix in indexes[:train_N] ]
+    test_pids = [ pt_ids[ix] for ix in indexes[train_N:] ]
+    test_mort = [ mort[ix] for ix in indexes[train_N:] ]
+    train_gen = batch_generator(train_pids, train_mort, bm_config, "train")
+    test_gen = batch_generator(test_pids, test_mort, bm_config, "test")
+    return train_gen, train_N//bm_config.batch_size, test_gen, \
+            (N - train_N)//bm_config.batch_size
 
 def _toy_model(bm_config):
     num_t = bm_config.dpsom_time_dim
@@ -154,13 +171,20 @@ def _toy_model(bm_config):
     return model
 
 def main(bm_config, cfg):
-    train_gen = dpsom_extraction_mortality(bm_config)
+    train_gen,train_steps,test_gen,test_steps = dpsom_extraction_mortality(\
+            bm_config)
     print( dir(train_gen) )
 #    print(f"Number of batches per epoch: {len(train_gen)}")
     X,y = next(train_gen)
-    print(X.shape, y.shape)
+    print("Input shapes:", X.shape, y.shape)
+    print("Mean y: ", np.mean(y))
+    print("Example y:", y[:10])
     model = _toy_model(bm_config)
-    model.fit(train_gen, steps_per_epoch=25, epochs=cfg["num_test_epochs"])
+    model.fit(train_gen, steps_per_epoch=25, epochs=cfg["num_test_epochs"],
+            workers=bm_config.num_workers)
+    yhat = model.predict(test_gen)
+    print("Output shape:", yhat.shape)
+    print("Mean yhat: ", np.mean(yhat))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

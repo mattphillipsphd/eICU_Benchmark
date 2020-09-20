@@ -37,15 +37,18 @@ HOME = os.path.expanduser("~")
 # common network
 def build_network_seq(config, input_size, output_dim=1, activation='sigmoid'):
     if config.task == "dpsom_mort":
-        inp = Input( shape=(input_size, 98) )
+        num_features = 98
+        inp = Input( shape=(input_size, num_features) )
     else:
+        num_features = 20
         input1 = Input(shape=(input_size, 13))
         input2 = Input(shape=(input_size, 7))
         x2 = Embedding(config.n_cat_class, config.embedding_dim)(input2)
         x2 = Reshape((int(x2.shape[1]),int(x2.shape[2]*x2.shape[3])))(x2)
         inp = keras.layers.Concatenate(axis=-1)([input1, x2])
 
-    mask = Masking(mask_value=0., name="maski")(inp)
+    mask = Masking(mask_value=0., name="maski",
+            input_shape=(input_size,num_features))(inp)
 
     lstm = mask
     for i in range(config.rnn_layers-1):
