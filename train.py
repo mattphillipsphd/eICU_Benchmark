@@ -163,7 +163,7 @@ def write_summary(session_dir, model):
 def train_dpsom_mort(config):
     from data_extraction.dpsom_mort import dpsom_extraction_mortality
     train_gen = dpsom_extraction_mortality(config)
-    all_idx = train_gen.get_pt_ids()
+#    all_idx = train_gen.get_pt_ids()
     time_dim = config.dpsom_time_dim
     model = network_seq(config, time_dim, output_dim=1, activation='sigmoid')
     history = model.fit(train_gen, steps_per_epoch=25,

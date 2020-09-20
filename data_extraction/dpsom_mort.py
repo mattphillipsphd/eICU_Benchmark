@@ -5,9 +5,12 @@ import pandas as pd
 import sys
 
 from tensorflow.keras.utils import Sequence
-
+from keras.models import Model
+from keras.layers import Input, Dense
+        
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+import models.metrics as metrics
 from config import Config
 
 pe = os.path.exists
@@ -44,7 +47,6 @@ class DataGenerator(Sequence):
         self._to_fit = to_fit
 
         self.on_epoch_end()
-        print("#%#$%", len(self._indexes))
 
     def __len__(self):
         """Denotes the number of batches per epoch
@@ -118,10 +120,8 @@ class DataGenerator(Sequence):
 
 
 def batch_generator(pt_ids, mort, bm_config):
-    print("Getting generator...")
     train_gen = DataGenerator(pt_ids, mort, bm_config, to_fit=True,
             shuffle=True)
-    print("...got generator")
     index = 0
     while True:
         X,y = train_gen[index]
@@ -141,17 +141,33 @@ def dpsom_extraction_mortality(bm_config):
     train_gen = batch_generator(pt_ids, mort.to_numpy(), bm_config)
     return train_gen
 
-def main(bm_config):
+def _toy_model(bm_config):
+    num_t = bm_config.dpsom_time_dim
+    num_ch = bm_config.dpsom_input_dim
+    inp = Input( shape=(num_t,num_ch) )
+    out = Dense(1)(inp)
+    optim = metrics.get_optimizer(lr=bm_config.lr)
+    model = Model(inputs=inp, outputs=out)
+    model.compile(loss="mean_squared_error", optimizer=optim,
+                metrics=[metrics.f1,metrics.sensitivity, metrics.specificity,
+                    'accuracy'])            
+    return model
+
+def main(bm_config, cfg):
     train_gen = dpsom_extraction_mortality(bm_config)
     print( dir(train_gen) )
 #    print(f"Number of batches per epoch: {len(train_gen)}")
     X,y = next(train_gen)
     print(X.shape, y.shape)
+    model = _toy_model(bm_config)
+    model.fit(train_gen, steps_per_epoch=25, epochs=cfg["num_test_epochs"])
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-b", "--batch-size", type=int, default=32)
+    parser.add_argument("-e", "--num-test-epochs", type=int, default=1)
     args = parser.parse_args()
     bm_config = Config(args)
-    main(bm_config)
+    cfg = vars(args)
+    main(bm_config, cfg)
 

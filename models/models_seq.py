@@ -36,11 +36,14 @@ HOME = os.path.expanduser("~")
 
 # common network
 def build_network_seq(config, input_size, output_dim=1, activation='sigmoid'):
-    input1 = Input(shape=(input_size, 13))
-    input2 = Input(shape=(input_size, 7))
-    x2 = Embedding(config.n_cat_class, config.embedding_dim)(input2)
-    x2 = Reshape((int(x2.shape[1]),int(x2.shape[2]*x2.shape[3])))(x2)
-    inp = keras.layers.Concatenate(axis=-1)([input1, x2])
+    if config.task == "dpsom_mort":
+        inp = Input( shape=(input_size, 98) )
+    else:
+        input1 = Input(shape=(input_size, 13))
+        input2 = Input(shape=(input_size, 7))
+        x2 = Embedding(config.n_cat_class, config.embedding_dim)(input2)
+        x2 = Reshape((int(x2.shape[1]),int(x2.shape[2]*x2.shape[3])))(x2)
+        inp = keras.layers.Concatenate(axis=-1)([input1, x2])
 
     mask = Masking(mask_value=0., name="maski")(inp)
 
@@ -83,25 +86,30 @@ def build_network_seq(config, input_size, output_dim=1, activation='sigmoid'):
 
     if config.task in ['rlos', 'dec']:
         out = TimeDistributed(Dense(output_dim, activation=activation))(lstm)
-    
     elif config.task in ['mort', 'phen', "dpsom_mort"]:
         out = Dense(output_dim, activation=activation)(lstm)
-    
     else:
-        print('Invalid task type.')
-        exit() 
+        raise NotImplementedError(config.task)
 
-    if config.num and config.cat:
-        model = keras.models.Model(inputs=[input1, input2], outputs=out)
+    if config.task == "dpsom_mort":
+        inputs = inp
     else:
-        model = keras.models.Model(inputs=input1, outputs=out)
+        inputs = [input1, input2]
+    if config.num and config.cat:
+        model = keras.models.Model(inputs=inputs, outputs=out)
+    else:
+        model = keras.models.Model(inputs=inputs, outputs=out)
 
     optim = metrics.get_optimizer(lr=config.lr)
 
-    if config.task in ['mort', "dpsom_mort"]:
+    if config.task in ['mort']:
         model.compile(loss="binary_crossentropy", optimizer=optim,
                 metrics=[metrics.f1,metrics.sensitivity, metrics.specificity,
                     'accuracy'])
+        # model.summary()
+    elif config.task in ["dpsom_mort"]:
+        model.compile(loss="mean_squared_error", optimizer=optim,
+                metrics=["MeanSquaredError", "AUC"])
         # model.summary()
     elif config.task == 'rlos':
         model.compile(loss='mean_squared_error', optimizer=optim,
