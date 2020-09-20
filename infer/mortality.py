@@ -130,15 +130,16 @@ def main(cfg):
 
         reducer = cfg["reducer"]
         if reducer=="tsne":
-            red_model = TSNE(n_components=2)
+            reducer_model = TSNE(n_components=2)
         elif reducer=="isomap":
-            red_model = Isomap(n_components=2, n_neighbors=cfg["n_neighbors"])
+            reducer_model = Isomap(n_components=2, 
+                    n_neighbors=cfg["n_neighbors"])
         else:
             raise NotImplementedError(reducer)
         probas_out = bilstm_seqs[:,-1,:]
         print("Shape of final probas matrix:", probas_out.shape)
         print(f"Fitting {reducer} model...")
-        proj_X = red_model.fit_transform(probas_out)
+        proj_X = reducer_model.fit_transform(probas_out)
             # Should really be training tsne with training data but oh well
         print("...Done")
         
@@ -162,7 +163,7 @@ def main(cfg):
         data_mat = np.zeros( (bilstm_seqs.shape[0], bilstm_seqs.shape[1], 2) )
         for j in range(seq_len - start_idx):
             slice_j = bilstm_seqs[:,j,:]
-            data_mat[:,j,:] = red_model.transform(slice_j)
+            data_mat[:,j,:] = reducer_model.transform(slice_j)
         print("...Done")
         color_d = { "r" : (ix_tn[::inc], 12),
                 "g" : (ix_fn[::inc], 24),
@@ -199,8 +200,7 @@ def main(cfg):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--model-dir", type=str,
-            default=pj(HOME, "Training/eICU_benchmark/mort_20200901-231037"))
-#            default=pj(HOME, "Training/eICU_benchmark/mort_20200908-075827"))
+            default=pj(HOME, "Training/eICU_benchmark/mort_20200909-091756"))
 
     parser.add_argument("--task", default='mort', type=str, required=False)
     parser.add_argument("--num", default=True, type=str, required=False)

@@ -160,6 +160,15 @@ def write_summary(session_dir, model):
     with open( pj(session_dir, "model_arch.yml"), "w" ) as fp:
         fp.write(mstr)
 
+def train_dpsom_mort(config):
+    from data_extraction.dpsom_mort import dpsom_extraction_mortality
+    train_gen = dpsom_extraction_mortality(config)
+    all_idx = train_gen.get_pt_ids()
+    time_dim = config.dpsom_time_dim
+    model = network_seq(config, time_dim, output_dim=1, activation='sigmoid')
+    history = model.fit(train_gen, steps_per_epoch=25,
+            epochs=config.epochs)
+
 #Mortality
 def train_mort(config):
     cvscores_mort = []
@@ -191,7 +200,7 @@ def train_mort(config):
         train_idx = all_idx[train_idx]  
         test_idx = all_idx[test_idx]
 
-        train, test = normalize_data(config, df_data,train_idx, test_idx)
+        train, test = normalize_data(config, df_data, train_idx, test_idx)
         train_gen, train_steps, (X_test, Y_test), max_time_step_test \
                 = data_reader.read_data(config, train, test, val=False)
 
@@ -459,6 +468,8 @@ def main(config):
         result = train_phen(config)
     elif config.task =='rlos':
         result = train_rlos(config)
+    elif config.task == "dpsom_mort":
+        result = train_dpsom_mort(config)
     else:
         print('Invalid task name')
 

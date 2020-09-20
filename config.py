@@ -13,6 +13,11 @@ class Config():
         self.root_dir = pj( HOME, "Datasets/EHRs/eICU/eICU_benchmark" )
         self.eicu_dir = pj( HOME, "Datasets/EHRs/eICU/csv" )
         self.output_dir = pj( HOME, "Training/eICU_benchmark" )
+        self.dpsom_supdir = pj( HOME, "Datasets/EHRs/eICU" )
+
+        # Data prepared a la the DPSOM paper
+        self.dpsom_input_dim = 98
+        self.dpsom_time_dim = 72 # Last N time steps
 
         # task details
         self.task = args.task if hasattr(args, "task") else "mort"

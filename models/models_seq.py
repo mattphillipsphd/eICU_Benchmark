@@ -58,7 +58,7 @@ def build_network_seq(config, input_size, output_dim=1, activation='sigmoid'):
             kernel_regularizer=regularizers.l2(0.01),
             kernel_initializer='glorot_normal', name="lstm_{}".format(
                 config.rnn_layers), return_sequences=True))(lstm)
-    elif config.task in ['mort']:
+    elif config.task in ['mort', "dpsom_mort"]:
         N = config.rnn_layers
         lstm = Bidirectional(LSTM(units=config.rnn_units[-1],
             kernel_regularizer=regularizers.l2(0.01),
@@ -84,7 +84,7 @@ def build_network_seq(config, input_size, output_dim=1, activation='sigmoid'):
     if config.task in ['rlos', 'dec']:
         out = TimeDistributed(Dense(output_dim, activation=activation))(lstm)
     
-    elif config.task in ['mort', 'phen']:
+    elif config.task in ['mort', 'phen', "dpsom_mort"]:
         out = Dense(output_dim, activation=activation)(lstm)
     
     else:
@@ -98,7 +98,7 @@ def build_network_seq(config, input_size, output_dim=1, activation='sigmoid'):
 
     optim = metrics.get_optimizer(lr=config.lr)
 
-    if config.task == 'mort':
+    if config.task in ['mort', "dpsom_mort"]:
         model.compile(loss="binary_crossentropy", optimizer=optim,
                 metrics=[metrics.f1,metrics.sensitivity, metrics.specificity,
                     'accuracy'])
