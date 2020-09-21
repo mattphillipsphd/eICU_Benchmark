@@ -511,6 +511,7 @@ if __name__ == "__main__":
     parser.add_argument("--mort_window", default=48, type=int, required=False)
 
     parser.add_argument("-b", "--batch-size", type=int, default=512)
+    parser.add_argument("-e", "--epochs", type=int, default=100)
 
     args = parser.parse_args()
     config = Config(args)
