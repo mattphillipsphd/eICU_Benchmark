@@ -1,6 +1,6 @@
 from config import Config
 import argparse
-from keras import backend as K
+from tensorflow.compat.v1.keras import backend as K
 import tensorflow as tf
 from sklearn.model_selection import KFold
 import numpy as np
@@ -382,9 +382,9 @@ def train_rlos(config):
          'MAE std':stdmaes}
 
 def main(config):
-    tf_config = tf.ConfigProto()
+    tf_config = tf.compat.v1.ConfigProto()
     tf_config.gpu_options.per_process_gpu_memory_fraction = 1
-    session = tf.Session(config=tf_config)
+    session = tf.compat.v1.Session(config=tf_config)
     K.set_session(session)
 
     np.random.seed(config.seed)
